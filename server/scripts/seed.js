@@ -46,12 +46,62 @@ const DOCTORS = [
     consultationType: "video",
     bio: "Specializes in skin health, offering convenient video consultations.",
   },
+  {
+    name: "Dr. Robert Kim",
+    email: "robert.kim@myhealthschool-demo.com",
+    specialization: "Orthopedist",
+    location: "Mountain View Ortho Center, Denver, CO",
+    consultationType: "in-person",
+    bio: "Focused on sports injuries, joint pain, and post-surgical rehabilitation.",
+  },
+  {
+    name: "Dr. Fatima Al-Sayed",
+    email: "fatima.alsayed@myhealthschool-demo.com",
+    specialization: "Psychiatrist",
+    location: "Wellness Mind Clinic, Chicago, IL",
+    consultationType: "video",
+    bio: "Helps patients manage anxiety, depression, and stress through evidence-based care.",
+  },
+  {
+    name: "Dr. Lucas Bennett",
+    email: "lucas.bennett@myhealthschool-demo.com",
+    specialization: "ENT Specialist",
+    location: "Harbor View Medical, Boston, MA",
+    consultationType: "both",
+    bio: "Treats ear, nose, and throat conditions for patients of all ages.",
+  },
+  {
+    name: "Dr. Olivia Martinez",
+    email: "olivia.martinez@myhealthschool-demo.com",
+    specialization: "Gynecologist",
+    location: "Bright Start Women's Health, Miami, FL",
+    consultationType: "in-person",
+    bio: "Provides comprehensive women's health care across every life stage.",
+  },
+  {
+    name: "Dr. Ahmed Hassan",
+    email: "ahmed.hassan@myhealthschool-demo.com",
+    specialization: "Endocrinologist",
+    location: "Metro Diabetes & Hormone Center, Houston, TX",
+    consultationType: "both",
+    bio: "Specializes in diabetes, thyroid disorders, and hormonal health.",
+  },
+  {
+    name: "Dr. Grace Park",
+    email: "grace.park@myhealthschool-demo.com",
+    specialization: "Ophthalmologist",
+    location: "Clear Vision Eye Institute, Los Angeles, CA",
+    consultationType: "in-person",
+    bio: "Comprehensive eye care, from routine exams to advanced treatment.",
+  },
 ];
 
 const PATIENTS = [
   { name: "Emily Carter", email: "emily.carter@myhealthschool-demo.com" },
   { name: "Michael Torres", email: "michael.torres@myhealthschool-demo.com" },
   { name: "Aisha Rahman", email: "aisha.rahman@myhealthschool-demo.com" },
+  { name: "Liam Foster", email: "liam.foster@myhealthschool-demo.com" },
+  { name: "Sophia Nguyen", email: "sophia.nguyen@myhealthschool-demo.com" },
 ];
 
 const DEMO_PASSWORD = "password123";
@@ -121,6 +171,8 @@ const run = async () => {
     { patient: patients[0], doctor: doctors[0], reason: "Annual physical checkup", status: "pending" },
     { patient: patients[1], doctor: doctors[1], reason: "Follow-up consultation", status: "confirmed" },
     { patient: patients[2], doctor: doctors[2], reason: "Persistent headache", status: "completed" },
+    { patient: patients[3], doctor: doctors[4], reason: "Knee pain evaluation", status: "pending" },
+    { patient: patients[4], doctor: doctors[6], reason: "Sinus consultation", status: "confirmed" },
   ];
 
   for (const booking of sampleBookings) {
