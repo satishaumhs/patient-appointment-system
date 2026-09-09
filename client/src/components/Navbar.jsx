@@ -19,7 +19,7 @@ const Navbar = () => {
             <path d="M12 21V11C12 5.5 16 2 22 2C22 8.5 18.5 12.5 12 12.5" />
           </svg>
         </span>
-        <span className="text-lg font-semibold text-gray-900">Patient Appointments</span>
+        <span className="text-lg font-semibold text-gray-900">My Health School</span>
       </Link>
       {user ? (
         <div className="flex items-center gap-4">
