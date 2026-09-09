@@ -40,7 +40,20 @@ const Landing = () => {
     <div>
       <section className="bg-gradient-to-b from-teal-50 to-white">
         <div className="max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">
-          <span className="inline-block text-xs font-semibold tracking-wide text-teal-700 bg-teal-100 rounded-full px-3 py-1 mb-6">
+          <span className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-teal-700 bg-teal-100 rounded-full px-4 py-1.5 mb-6">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-4 h-4"
+            >
+              <path d="M4.5 3v6.5a4 4 0 0 0 8 0V3" />
+              <path d="M8.5 13.5v1a6.5 6.5 0 0 0 13 0v-3.5" />
+              <circle cx="20" cy="8.5" r="2.3" />
+            </svg>
             Online appointment booking
           </span>
           <p className="mt-5 text-lg text-gray-600 max-w-2xl mx-auto">
