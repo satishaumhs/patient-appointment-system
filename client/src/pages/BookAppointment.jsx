@@ -39,7 +39,7 @@ const BookAppointment = () => {
     setSubmitting(true);
     try {
       await api.post("/appointments", { slotId, reason });
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(
         err.response?.data?.message ||

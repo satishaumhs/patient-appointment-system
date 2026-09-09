@@ -20,7 +20,7 @@ const Register = () => {
     setSubmitting(true);
     try {
       await register(form.name, form.email, form.password, form.role);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       setError(
         err.response?.data?.message ||

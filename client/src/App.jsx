@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import BookAppointment from "./pages/BookAppointment";
 import ManageAvailability from "./pages/ManageAvailability";
 import AdminUsers from "./pages/AdminUsers";
+import Landing from "./pages/Landing";
 
 function App() {
   return (
@@ -15,10 +16,11 @@ function App() {
       <AuthProvider>
         <Navbar />
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
