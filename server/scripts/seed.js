@@ -1,0 +1,124 @@
+// One-off/re-runnable script to populate demo doctors, patients, availability,
+// and a few sample appointments. Safe to re-run: users are skipped if their
+// email already exists, and slot generation skips duplicates automatically
+// (same unique-index behavior as the real /api/availability endpoint).
+//
+// Usage: cd server && node scripts/seed.js
+
+require("dotenv").config();
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+
+const User = require("../src/models/User");
+const Availability = require("../src/models/Availability");
+const Appointment = require("../src/models/Appointment");
+
+const DOCTORS = [
+  { name: "Dr. Sarah Mitchell", email: "sarah.mitchell@myhealthschool-demo.com" },
+  { name: "Dr. James Okafor", email: "james.okafor@myhealthschool-demo.com" },
+  { name: "Dr. Priya Nair", email: "priya.nair@myhealthschool-demo.com" },
+  { name: "Dr. Daniel Chen", email: "daniel.chen@myhealthschool-demo.com" },
+];
+
+const PATIENTS = [
+  { name: "Emily Carter", email: "emily.carter@myhealthschool-demo.com" },
+  { name: "Michael Torres", email: "michael.torres@myhealthschool-demo.com" },
+  { name: "Aisha Rahman", email: "aisha.rahman@myhealthschool-demo.com" },
+];
+
+const DEMO_PASSWORD = "password123";
+
+const ensureUser = async ({ name, email, role }) => {
+  const existing = await User.findOne({ email });
+  if (existing) return existing;
+
+  const hashedPassword = await bcrypt.hash(DEMO_PASSWORD, 10);
+  return User.create({ name, email, password: hashedPassword, role });
+};
+
+const generateSlotsForDoctor = async (doctorId, daysFromNow) => {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  date.setHours(9, 0, 0, 0);
+
+  const dayEnd = new Date(date);
+  dayEnd.setHours(17, 0, 0, 0);
+
+  const slots = [];
+  let cursor = new Date(date);
+  while (cursor < dayEnd) {
+    const end = new Date(cursor.getTime() + 30 * 60000);
+    slots.push({ doctor: doctorId, startTime: new Date(cursor), endTime: end });
+    cursor = end;
+  }
+
+  try {
+    await Availability.insertMany(slots, { ordered: false });
+  } catch (error) {
+    if (!(error.name === "MongoBulkWriteError" || error.code === 11000)) throw error;
+  }
+};
+
+const run = async () => {
+  await mongoose.connect(process.env.MONGO_URI);
+  console.log("Connected. Seeding...");
+
+  const doctors = [];
+  for (const d of DOCTORS) {
+    doctors.push(await ensureUser({ ...d, role: "doctor" }));
+  }
+
+  const patients = [];
+  for (const p of PATIENTS) {
+    patients.push(await ensureUser({ ...p, role: "patient" }));
+  }
+
+  for (const doctor of doctors) {
+    await generateSlotsForDoctor(doctor._id, 1);
+    await generateSlotsForDoctor(doctor._id, 2);
+    await generateSlotsForDoctor(doctor._id, 3);
+  }
+  console.log(`Ensured availability slots for ${doctors.length} doctor(s).`);
+
+  // A few sample appointments across different statuses, only created once
+  // (skipped on re-run if this patient already has any appointment).
+  const sampleBookings = [
+    { patient: patients[0], doctor: doctors[0], reason: "Annual physical checkup", status: "pending" },
+    { patient: patients[1], doctor: doctors[1], reason: "Follow-up consultation", status: "confirmed" },
+    { patient: patients[2], doctor: doctors[2], reason: "Persistent headache", status: "completed" },
+  ];
+
+  for (const booking of sampleBookings) {
+    const alreadyHasOne = await Appointment.findOne({ patient: booking.patient._id });
+    if (alreadyHasOne) continue;
+
+    const slot = await Availability.findOne({ doctor: booking.doctor._id, isBooked: false }).sort({
+      startTime: 1,
+    });
+    if (!slot) continue;
+
+    slot.isBooked = true;
+    await slot.save();
+
+    await Appointment.create({
+      patient: booking.patient._id,
+      doctor: booking.doctor._id,
+      slot: slot._id,
+      date: slot.startTime,
+      reason: booking.reason,
+      status: booking.status,
+    });
+  }
+  console.log("Ensured sample appointments.");
+
+  console.log("\nDone. Demo accounts (all use password: " + DEMO_PASSWORD + "):");
+  doctors.forEach((d) => console.log(`  doctor  ${d.email}`));
+  patients.forEach((p) => console.log(`  patient ${p.email}`));
+
+  await mongoose.disconnect();
+};
+
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
