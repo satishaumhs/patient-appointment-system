@@ -13,8 +13,11 @@ const Navbar = () => {
   return (
     <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
       <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2.5">
-        <span className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white font-bold leading-none">
-          +
+        <span className="w-9 h-9 rounded-lg bg-teal-600 flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="white" className="w-5 h-5">
+            <path d="M12 21V11C12 5.5 8 2 2 2C2 8.5 5.5 12.5 12 12.5" />
+            <path d="M12 21V11C12 5.5 16 2 22 2C22 8.5 18.5 12.5 12 12.5" />
+          </svg>
         </span>
         <span className="text-lg font-semibold text-gray-900">Patient Appointments</span>
       </Link>
