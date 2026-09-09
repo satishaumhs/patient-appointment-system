@@ -43,9 +43,6 @@ const Landing = () => {
           <span className="inline-block text-xs font-semibold tracking-wide text-teal-700 bg-teal-100 rounded-full px-3 py-1 mb-6">
             Online appointment booking
           </span>
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">
-            Quality care, <span className="text-teal-600">one click away</span>
-          </h1>
           <p className="mt-5 text-lg text-gray-600 max-w-2xl mx-auto">
             Book appointments with our doctors in minutes. Patients, doctors, and staff
             all manage their care from one simple, secure platform.
