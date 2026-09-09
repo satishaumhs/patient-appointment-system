@@ -6,9 +6,11 @@ const registerValidator = [
   body("password")
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters"),
+  // Admin is intentionally excluded: self-registration must never grant admin.
+  // Promote a user to admin directly in the database.
   body("role")
     .optional()
-    .isIn(["patient", "doctor", "admin"])
+    .isIn(["patient", "doctor"])
     .withMessage("Invalid role"),
 ];
 

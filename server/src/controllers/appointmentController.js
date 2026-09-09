@@ -9,7 +9,7 @@ const createAppointment = asyncHandler(async (req, res) => {
   const slot = await Availability.findOneAndUpdate(
     { _id: slotId, isBooked: false },
     { isBooked: true },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!slot) {

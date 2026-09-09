@@ -7,6 +7,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import BookAppointment from "./pages/BookAppointment";
 import ManageAvailability from "./pages/ManageAvailability";
+import AdminUsers from "./pages/AdminUsers";
 
 function App() {
   return (
@@ -37,6 +38,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["doctor"]}>
                 <ManageAvailability />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <AdminUsers />
               </ProtectedRoute>
             }
           />
