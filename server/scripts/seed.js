@@ -14,10 +14,38 @@ const Availability = require("../src/models/Availability");
 const Appointment = require("../src/models/Appointment");
 
 const DOCTORS = [
-  { name: "Dr. Sarah Mitchell", email: "sarah.mitchell@myhealthschool-demo.com" },
-  { name: "Dr. James Okafor", email: "james.okafor@myhealthschool-demo.com" },
-  { name: "Dr. Priya Nair", email: "priya.nair@myhealthschool-demo.com" },
-  { name: "Dr. Daniel Chen", email: "daniel.chen@myhealthschool-demo.com" },
+  {
+    name: "Dr. Sarah Mitchell",
+    email: "sarah.mitchell@myhealthschool-demo.com",
+    specialization: "Cardiologist",
+    location: "Downtown Clinic, New York, NY",
+    consultationType: "both",
+    bio: "15 years of experience in cardiovascular care, focused on preventive heart health.",
+  },
+  {
+    name: "Dr. James Okafor",
+    email: "james.okafor@myhealthschool-demo.com",
+    specialization: "General Physician",
+    location: "Riverside Medical Center, Austin, TX",
+    consultationType: "in-person",
+    bio: "Board-certified family physician providing comprehensive primary care for all ages.",
+  },
+  {
+    name: "Dr. Priya Nair",
+    email: "priya.nair@myhealthschool-demo.com",
+    specialization: "Pediatrician",
+    location: "Sunrise Children's Clinic, San Jose, CA",
+    consultationType: "both",
+    bio: "Dedicated to children's health from infancy through adolescence.",
+  },
+  {
+    name: "Dr. Daniel Chen",
+    email: "daniel.chen@myhealthschool-demo.com",
+    specialization: "Dermatologist",
+    location: "Lakeside Health Center, Seattle, WA",
+    consultationType: "video",
+    bio: "Specializes in skin health, offering convenient video consultations.",
+  },
 ];
 
 const PATIENTS = [
@@ -28,12 +56,19 @@ const PATIENTS = [
 
 const DEMO_PASSWORD = "password123";
 
-const ensureUser = async ({ name, email, role }) => {
+const ensureUser = async ({ name, email, role, ...profile }) => {
   const existing = await User.findOne({ email });
-  if (existing) return existing;
+  if (existing) {
+    // Backfill doctor profile fields added after this account was first seeded.
+    if (role === "doctor" && !existing.specialization && profile.specialization) {
+      Object.assign(existing, profile);
+      await existing.save();
+    }
+    return existing;
+  }
 
   const hashedPassword = await bcrypt.hash(DEMO_PASSWORD, 10);
-  return User.create({ name, email, password: hashedPassword, role });
+  return User.create({ name, email, password: hashedPassword, role, ...profile });
 };
 
 const generateSlotsForDoctor = async (doctorId, daysFromNow) => {

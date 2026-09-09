@@ -4,7 +4,13 @@ const app = require("../app");
 const registerAndGetCookie = async (overrides = {}) => {
   const res = await request(app)
     .post("/api/auth/register")
-    .send({ name: "Test User", email: "test@example.com", password: "password123", ...overrides });
+    .send({
+      name: "Test User",
+      email: "test@example.com",
+      password: "password123",
+      ...(overrides.role === "doctor" && { specialization: "General Physician" }),
+      ...overrides,
+    });
   return { cookie: res.headers["set-cookie"], userId: res.body.user.id };
 };
 

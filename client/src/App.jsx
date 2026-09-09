@@ -10,6 +10,8 @@ import BookAppointment from "./pages/BookAppointment";
 import ManageAvailability from "./pages/ManageAvailability";
 import AdminUsers from "./pages/AdminUsers";
 import Landing from "./pages/Landing";
+import FindDoctor from "./pages/FindDoctor";
+import DoctorProfile from "./pages/DoctorProfile";
 
 function App() {
   return (
@@ -28,6 +30,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/doctors"
+              element={
+                <ProtectedRoute>
+                  <FindDoctor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/doctors/:id"
+              element={
+                <ProtectedRoute>
+                  <DoctorProfile />
                 </ProtectedRoute>
               }
             />

@@ -3,10 +3,18 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const inputClass =
-  "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900";
+  "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 const Register = () => {
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "patient" });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "patient",
+    specialization: "",
+    location: "",
+    consultationType: "in-person",
+  });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
@@ -19,7 +27,7 @@ const Register = () => {
     setError("");
     setSubmitting(true);
     try {
-      await register(form.name, form.email, form.password, form.role);
+      await register(form);
       navigate("/dashboard");
     } catch (err) {
       setError(
@@ -33,7 +41,7 @@ const Register = () => {
   };
 
   return (
-    <div className="max-w-sm mx-auto mt-16 px-6">
+    <div className="max-w-sm mx-auto mt-16 px-6 pb-16">
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create an account</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -72,11 +80,60 @@ const Register = () => {
             <option value="doctor">Doctor</option>
           </select>
         </div>
+
+        {form.role === "doctor" && (
+          <>
+            <div>
+              <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-1">
+                Specialization
+              </label>
+              <input
+                id="specialization"
+                name="specialization"
+                value={form.specialization}
+                onChange={handleChange}
+                placeholder="e.g. Cardiologist, General Physician"
+                required
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                Location
+              </label>
+              <input
+                id="location"
+                name="location"
+                value={form.location}
+                onChange={handleChange}
+                placeholder="e.g. Downtown Clinic, New York, NY"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="consultationType" className="block text-sm font-medium text-gray-700 mb-1">
+                Consultation type
+              </label>
+              <select
+                id="consultationType"
+                name="consultationType"
+                value={form.consultationType}
+                onChange={handleChange}
+                className={inputClass}
+              >
+                <option value="in-person">In-person</option>
+                <option value="video">Video</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+          </>
+        )}
+
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-md bg-gray-900 text-white py-2 font-medium hover:bg-gray-700 disabled:opacity-50"
+          className="w-full rounded-md bg-teal-600 text-white py-2 font-medium hover:bg-teal-700 disabled:opacity-50"
         >
           {submitting ? "Creating account..." : "Register"}
         </button>

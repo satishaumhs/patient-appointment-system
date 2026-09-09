@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 
 const inputClass =
-  "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900";
+  "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 const BookAppointment = () => {
+  const [searchParams] = useSearchParams();
+  const preselectedDoctorId = searchParams.get("doctorId") || "";
+
   const [doctors, setDoctors] = useState([]);
-  const [doctorId, setDoctorId] = useState("");
+  const [doctorId, setDoctorId] = useState(preselectedDoctorId);
   const [date, setDate] = useState("");
   const [slots, setSlots] = useState([]);
   const [slotId, setSlotId] = useState("");
@@ -51,28 +54,37 @@ const BookAppointment = () => {
     }
   };
 
+  const preselectedDoctor = doctors.find((d) => d._id === preselectedDoctorId);
+
   return (
     <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Book an appointment</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="doctor" className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
-          <select
-            id="doctor"
-            value={doctorId}
-            onChange={(e) => setDoctorId(e.target.value)}
-            required
-            className={inputClass}
-          >
-            <option value="" disabled>
-              Select a doctor
-            </option>
-            {doctors.map((d) => (
-              <option key={d._id} value={d._id}>
-                {d.name}
+          {preselectedDoctorId ? (
+            <div className={`${inputClass} bg-gray-50 text-gray-900`}>
+              {preselectedDoctor?.name || "Loading..."}
+            </div>
+          ) : (
+            <select
+              id="doctor"
+              value={doctorId}
+              onChange={(e) => setDoctorId(e.target.value)}
+              required
+              className={inputClass}
+            >
+              <option value="" disabled>
+                Select a doctor
               </option>
-            ))}
-          </select>
+              {doctors.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name}
+                  {d.specialization ? ` — ${d.specialization}` : ""}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div>
           <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
@@ -102,8 +114,8 @@ const BookAppointment = () => {
                     onClick={() => setSlotId(slot._id)}
                     className={`text-sm px-2 py-2 rounded-md border ${
                       slotId === slot._id
-                        ? "bg-gray-900 text-white border-gray-900"
-                        : "border-gray-300 text-gray-700 hover:border-gray-900"
+                        ? "bg-teal-600 text-white border-teal-600"
+                        : "border-gray-300 text-gray-700 hover:border-teal-600"
                     }`}
                   >
                     {new Date(slot.startTime).toLocaleTimeString([], {
@@ -131,7 +143,7 @@ const BookAppointment = () => {
         <button
           type="submit"
           disabled={submitting || !slotId}
-          className="w-full rounded-md bg-gray-900 text-white py-2 font-medium hover:bg-gray-700 disabled:opacity-50"
+          className="w-full rounded-md bg-teal-600 text-white py-2 font-medium hover:bg-teal-700 disabled:opacity-50"
         >
           {submitting ? "Booking..." : "Book appointment"}
         </button>

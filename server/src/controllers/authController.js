@@ -4,7 +4,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const generateToken = require("../utils/generateToken");
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, specialization, location, consultationType, bio } = req.body;
 
   const existingUser = await User.findOne({ email });
 
@@ -21,6 +21,7 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     password: hashedPassword,
     role: role || "patient",
+    ...(role === "doctor" && { specialization, location, consultationType, bio }),
   });
 
   generateToken(res, user._id);

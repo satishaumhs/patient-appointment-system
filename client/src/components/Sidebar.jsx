@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { GridIcon, CalendarPlusIcon, ClockIcon, UsersIcon, LogoutIcon } from "./icons";
+import { GridIcon, CalendarPlusIcon, ClockIcon, UsersIcon, LogoutIcon, StethoscopeIcon } from "./icons";
 
 const NAV_ITEMS = {
   patient: [
     { to: "/dashboard", label: "Dashboard", icon: GridIcon },
+    { to: "/doctors", label: "Find a Doctor", icon: StethoscopeIcon },
     { to: "/book", label: "Book Appointment", icon: CalendarPlusIcon },
   ],
   doctor: [
@@ -40,7 +41,7 @@ const Sidebar = () => {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {items.map(({ to, label, icon: Icon }) => {
-          const active = location.pathname === to;
+          const active = location.pathname === to || location.pathname.startsWith(`${to}/`);
           return (
             <Link
               key={to}

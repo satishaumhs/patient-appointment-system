@@ -12,6 +12,14 @@ const registerValidator = [
     .optional()
     .isIn(["patient", "doctor"])
     .withMessage("Invalid role"),
+  body("specialization")
+    .if(body("role").equals("doctor"))
+    .trim()
+    .notEmpty()
+    .withMessage("Specialization is required for doctor accounts"),
+  body("location").optional().trim(),
+  body("consultationType").optional().isIn(["in-person", "video", "both"]).withMessage("Invalid consultation type"),
+  body("bio").optional().trim(),
 ];
 
 const loginValidator = [

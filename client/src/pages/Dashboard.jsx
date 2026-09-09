@@ -113,7 +113,7 @@ const Dashboard = () => {
         <h1 className="text-2xl font-semibold text-gray-900">{TITLES[user.role]}</h1>
         {user.role === "patient" && (
           <Link
-            to="/book"
+            to="/doctors"
             className="rounded-md bg-teal-600 text-white px-4 py-2 text-sm font-medium hover:bg-teal-700"
           >
             Book appointment

@@ -26,6 +26,25 @@ const userSchema = new mongoose.Schema(
       enum: ["patient", "doctor", "admin"],
       default: "patient",
     },
+
+    // Doctor-only profile fields (unused for patient/admin accounts).
+    specialization: {
+      type: String,
+      trim: true,
+    },
+    location: {
+      type: String,
+      trim: true,
+    },
+    consultationType: {
+      type: String,
+      enum: ["in-person", "video", "both"],
+      default: "in-person",
+    },
+    bio: {
+      type: String,
+      trim: true,
+    },
   },
   {
     timestamps: true,

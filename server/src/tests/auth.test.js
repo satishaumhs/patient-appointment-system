@@ -42,6 +42,27 @@ describe("Auth", () => {
     expect(res.status).toBe(400);
   });
 
+  it("requires a specialization for doctor registration", async () => {
+    const res = await request(app).post("/api/auth/register").send({
+      name: "Dr. No Spec",
+      email: "nospec@example.com",
+      password: "password123",
+      role: "doctor",
+    });
+
+    expect(res.status).toBe(400);
+
+    const withSpec = await request(app).post("/api/auth/register").send({
+      name: "Dr. Has Spec",
+      email: "hasspec@example.com",
+      password: "password123",
+      role: "doctor",
+      specialization: "Cardiologist",
+    });
+
+    expect(withSpec.status).toBe(201);
+  });
+
   it("logs in with correct credentials and rejects a wrong password", async () => {
     await request(app).post("/api/auth/register").send({
       name: "Bob",
