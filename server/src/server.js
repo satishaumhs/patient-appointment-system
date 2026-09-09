@@ -1,5 +1,6 @@
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const userRoutes = require("./routes/userRoutes");
+const availabilityRoutes = require("./routes/availabilityRoutes");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -32,6 +33,7 @@ connectDB();
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/availability", availabilityRoutes);
 
 app.get("/", (req, res) => {
   res.send("Patient Appointment Management API is running");

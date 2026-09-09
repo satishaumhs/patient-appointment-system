@@ -1,24 +1,42 @@
 const asyncHandler = require("../utils/asyncHandler");
 const Appointment = require("../models/Appointment");
-const User = require("../models/User");
+const Availability = require("../models/Availability");
 
 const createAppointment = asyncHandler(async (req, res) => {
-  const { doctor, date, reason } = req.body;
+  const { slotId, reason } = req.body;
 
-  const doctorUser = await User.findOne({ _id: doctor, role: "doctor" });
+  // Atomic claim: only one concurrent request can win the isBooked:false filter.
+  const slot = await Availability.findOneAndUpdate(
+    { _id: slotId, isBooked: false },
+    { isBooked: true },
+    { new: true }
+  );
 
-  if (!doctorUser) {
-    return res.status(404).json({ message: "Doctor not found" });
+  if (!slot) {
+    return res.status(409).json({ message: "That slot is no longer available" });
   }
 
-  const appointment = await Appointment.create({
-    patient: req.user._id,
-    doctor,
-    date,
-    reason,
-  });
+  if (slot.startTime < new Date()) {
+    slot.isBooked = false;
+    await slot.save();
+    return res.status(400).json({ message: "Cannot book a slot in the past" });
+  }
 
-  res.status(201).json(appointment);
+  try {
+    const appointment = await Appointment.create({
+      patient: req.user._id,
+      doctor: slot.doctor,
+      slot: slot._id,
+      date: slot.startTime,
+      reason,
+    });
+
+    res.status(201).json(appointment);
+  } catch (error) {
+    slot.isBooked = false;
+    await slot.save();
+    throw error;
+  }
 });
 
 const getAppointments = asyncHandler(async (req, res) => {
@@ -85,6 +103,10 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
   appointment.status = req.body.status;
   await appointment.save();
 
+  if (req.body.status === "cancelled") {
+    await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+  }
+
   res.json(appointment);
 });
 
@@ -96,6 +118,7 @@ const deleteAppointment = asyncHandler(async (req, res) => {
   }
 
   await appointment.deleteOne();
+  await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
 
   res.json({ message: "Appointment removed" });
 });

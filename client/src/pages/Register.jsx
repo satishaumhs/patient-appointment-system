@@ -37,12 +37,13 @@ const Register = () => {
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create an account</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-          <input name="name" value={form.name} onChange={handleChange} required className={inputClass} />
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input id="name" name="name" value={form.name} onChange={handleChange} required className={inputClass} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input
+            id="email"
             type="email"
             name="email"
             value={form.email}
@@ -52,8 +53,9 @@ const Register = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
           <input
+            id="password"
             type="password"
             name="password"
             value={form.password}
@@ -64,8 +66,8 @@ const Register = () => {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">I am a</label>
-          <select name="role" value={form.role} onChange={handleChange} className={inputClass}>
+          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">I am a</label>
+          <select id="role" name="role" value={form.role} onChange={handleChange} className={inputClass}>
             <option value="patient">Patient</option>
             <option value="doctor">Doctor</option>
           </select>

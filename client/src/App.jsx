@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import BookAppointment from "./pages/BookAppointment";
+import ManageAvailability from "./pages/ManageAvailability";
 
 function App() {
   return (
@@ -28,6 +29,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["patient"]}>
                 <BookAppointment />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/availability"
+            element={
+              <ProtectedRoute allowedRoles={["doctor"]}>
+                <ManageAvailability />
               </ProtectedRoute>
             }
           />

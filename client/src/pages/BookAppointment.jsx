@@ -7,7 +7,12 @@ const inputClass =
 
 const BookAppointment = () => {
   const [doctors, setDoctors] = useState([]);
-  const [form, setForm] = useState({ doctor: "", date: "", reason: "" });
+  const [doctorId, setDoctorId] = useState("");
+  const [date, setDate] = useState("");
+  const [slots, setSlots] = useState([]);
+  const [slotId, setSlotId] = useState("");
+  const [reason, setReason] = useState("");
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -16,17 +21,24 @@ const BookAppointment = () => {
     api.get("/users/doctors").then((res) => setDoctors(res.data));
   }, []);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  useEffect(() => {
+    setSlotId("");
+    setSlots([]);
+    if (!doctorId || !date) return;
+
+    setLoadingSlots(true);
+    api
+      .get(`/availability/${doctorId}`, { params: { date } })
+      .then((res) => setSlots(res.data))
+      .finally(() => setLoadingSlots(false));
+  }, [doctorId, date]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      await api.post("/appointments", {
-        ...form,
-        date: new Date(form.date).toISOString(),
-      });
+      await api.post("/appointments", { slotId, reason });
       navigate("/");
     } catch (err) {
       setError(
@@ -44,8 +56,14 @@ const BookAppointment = () => {
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Book an appointment</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
-          <select name="doctor" value={form.doctor} onChange={handleChange} required className={inputClass}>
+          <label htmlFor="doctor" className="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
+          <select
+            id="doctor"
+            value={doctorId}
+            onChange={(e) => setDoctorId(e.target.value)}
+            required
+            className={inputClass}
+          >
             <option value="" disabled>
               Select a doctor
             </option>
@@ -57,22 +75,53 @@ const BookAppointment = () => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date &amp; time</label>
+          <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
           <input
-            type="datetime-local"
-            name="date"
-            value={form.date}
-            onChange={handleChange}
+            id="date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
             required
+            disabled={!doctorId}
             className={inputClass}
           />
         </div>
+        {doctorId && date && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Available times</label>
+            {loadingSlots ? (
+              <p className="text-sm text-gray-500">Loading times...</p>
+            ) : slots.length === 0 ? (
+              <p className="text-sm text-gray-500">No open slots that day. Try another date.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {slots.map((slot) => (
+                  <button
+                    key={slot._id}
+                    type="button"
+                    onClick={() => setSlotId(slot._id)}
+                    className={`text-sm px-2 py-2 rounded-md border ${
+                      slotId === slot._id
+                        ? "bg-gray-900 text-white border-gray-900"
+                        : "border-gray-300 text-gray-700 hover:border-gray-900"
+                    }`}
+                  >
+                    {new Date(slot.startTime).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Reason for visit</label>
+          <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">Reason for visit</label>
           <textarea
-            name="reason"
-            value={form.reason}
-            onChange={handleChange}
+            id="reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
             required
             rows={3}
             className={inputClass}
@@ -81,7 +130,7 @@ const BookAppointment = () => {
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !slotId}
           className="w-full rounded-md bg-gray-900 text-white py-2 font-medium hover:bg-gray-700 disabled:opacity-50"
         >
           {submitting ? "Booking..." : "Book appointment"}
