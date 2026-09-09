@@ -18,16 +18,9 @@ const Navbar = () => {
       </Link>
       {user ? (
         <div className="flex items-center gap-4">
-          {user.role === "doctor" && (
-            <Link to="/availability" className="text-sm text-gray-600 hover:text-gray-900 underline">
-              Manage availability
-            </Link>
-          )}
-          {user.role === "admin" && (
-            <Link to="/admin/users" className="text-sm text-gray-600 hover:text-gray-900 underline">
-              Manage users
-            </Link>
-          )}
+          <Link to="/dashboard" className="text-sm text-gray-600 hover:text-gray-900 underline">
+            Go to dashboard
+          </Link>
           <span className="text-sm text-gray-600">
             {user.name} <span className="text-gray-400">({user.role})</span>
           </span>

@@ -42,7 +42,7 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto mt-10 px-6">
+    <div className="max-w-3xl mx-auto">
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Manage users</h1>
 
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}

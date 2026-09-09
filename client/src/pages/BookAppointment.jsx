@@ -52,7 +52,7 @@ const BookAppointment = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-12 px-6">
+    <div className="max-w-md mx-auto">
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Book an appointment</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

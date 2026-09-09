@@ -62,7 +62,7 @@ const ManageAvailability = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto mt-10 px-6">
+    <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Manage availability</h1>
 
       <form
