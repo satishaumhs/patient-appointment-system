@@ -5,10 +5,16 @@ const generateToken = (res, userId) => {
     expiresIn: "30d",
   });
 
+  const isProd = process.env.NODE_ENV === "production";
+
   res.cookie("token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    // Client and API are on different origins in production (e.g. separate
+    // Render subdomains), so the cookie needs sameSite:"none", which in turn
+    // requires secure:true. Locally (same-site http://localhost) "lax" is
+    // fine and avoids the secure-cookie-over-http restriction.
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
     maxAge: 30 * 24 * 60 * 60 * 1000,
   });
 

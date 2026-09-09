@@ -69,8 +69,12 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+
   res.cookie("token", "", {
     httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
     expires: new Date(0),
   });
 
