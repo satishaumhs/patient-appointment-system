@@ -5,14 +5,14 @@ const Availability = require("../models/Availability");
 
 const getDoctors = asyncHandler(async (req, res) => {
   const doctors = await User.find({ role: "doctor" }).select(
-    "name email specialization location consultationType bio"
+    "name email specialization location consultationType bio experience qualification consultationFee"
   );
   res.json(doctors);
 });
 
 const getDoctorById = asyncHandler(async (req, res) => {
   const doctor = await User.findOne({ _id: req.params.id, role: "doctor" }).select(
-    "name email specialization location consultationType bio"
+    "name email specialization location consultationType bio experience qualification consultationFee"
   );
 
   if (!doctor) {

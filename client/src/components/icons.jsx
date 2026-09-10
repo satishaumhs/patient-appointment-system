@@ -109,6 +109,41 @@ export const XIcon = (props) => (
   </svg>
 );
 
+export const ChevronLeftIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M15 6l-6 6 6 6" />
+  </svg>
+);
+
+export const ChevronRightIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M9 6l6 6-6 6" />
+  </svg>
+);
+
+export const BriefcaseIcon = (props) => (
+  <svg {...base} {...props}>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+  </svg>
+);
+
+export const GraduationCapIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M2 8l10-5 10 5-10 5-10-5z" />
+    <path d="M6 10.5V16c0 1.5 2.5 3 6 3s6-1.5 6-3v-5.5" />
+    <line x1="22" y1="8" x2="22" y2="14" />
+  </svg>
+);
+
+export const MapPinIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z" />
+    <circle cx="12" cy="10" r="2.5" />
+  </svg>
+);
+
 export const LogoutIcon = (props) => (
   <svg {...base} {...props}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

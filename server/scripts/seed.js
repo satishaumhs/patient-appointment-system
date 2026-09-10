@@ -21,6 +21,9 @@ const DOCTORS = [
     location: "Downtown Clinic, New York, NY",
     consultationType: "both",
     bio: "15 years of experience in cardiovascular care, focused on preventive heart health.",
+    experience: 15,
+    qualification: "MBBS, MD (Cardiology)",
+    consultationFee: 800,
   },
   {
     name: "Dr. James Okafor",
@@ -29,6 +32,9 @@ const DOCTORS = [
     location: "Riverside Medical Center, Austin, TX",
     consultationType: "in-person",
     bio: "Board-certified family physician providing comprehensive primary care for all ages.",
+    experience: 8,
+    qualification: "MBBS, MD (General Medicine)",
+    consultationFee: 500,
   },
   {
     name: "Dr. Priya Nair",
@@ -37,6 +43,9 @@ const DOCTORS = [
     location: "Sunrise Children's Clinic, San Jose, CA",
     consultationType: "both",
     bio: "Dedicated to children's health from infancy through adolescence.",
+    experience: 11,
+    qualification: "MBBS, MD (Pediatrics)",
+    consultationFee: 600,
   },
   {
     name: "Dr. Daniel Chen",
@@ -45,6 +54,9 @@ const DOCTORS = [
     location: "Lakeside Health Center, Seattle, WA",
     consultationType: "video",
     bio: "Specializes in skin health, offering convenient video consultations.",
+    experience: 6,
+    qualification: "MBBS, MD (Dermatology)",
+    consultationFee: 700,
   },
   {
     name: "Dr. Robert Kim",
@@ -53,6 +65,9 @@ const DOCTORS = [
     location: "Mountain View Ortho Center, Denver, CO",
     consultationType: "in-person",
     bio: "Focused on sports injuries, joint pain, and post-surgical rehabilitation.",
+    experience: 13,
+    qualification: "MBBS, MS (Orthopedics)",
+    consultationFee: 750,
   },
   {
     name: "Dr. Fatima Al-Sayed",
@@ -61,6 +76,9 @@ const DOCTORS = [
     location: "Wellness Mind Clinic, Chicago, IL",
     consultationType: "video",
     bio: "Helps patients manage anxiety, depression, and stress through evidence-based care.",
+    experience: 9,
+    qualification: "MBBS, MD (Psychiatry)",
+    consultationFee: 650,
   },
   {
     name: "Dr. Lucas Bennett",
@@ -69,6 +87,9 @@ const DOCTORS = [
     location: "Harbor View Medical, Boston, MA",
     consultationType: "both",
     bio: "Treats ear, nose, and throat conditions for patients of all ages.",
+    experience: 7,
+    qualification: "MBBS, MS (ENT)",
+    consultationFee: 550,
   },
   {
     name: "Dr. Olivia Martinez",
@@ -77,6 +98,9 @@ const DOCTORS = [
     location: "Bright Start Women's Health, Miami, FL",
     consultationType: "in-person",
     bio: "Provides comprehensive women's health care across every life stage.",
+    experience: 12,
+    qualification: "MBBS, MD (Obstetrics & Gynecology)",
+    consultationFee: 700,
   },
   {
     name: "Dr. Ahmed Hassan",
@@ -85,6 +109,9 @@ const DOCTORS = [
     location: "Metro Diabetes & Hormone Center, Houston, TX",
     consultationType: "both",
     bio: "Specializes in diabetes, thyroid disorders, and hormonal health.",
+    experience: 10,
+    qualification: "MBBS, MD (Endocrinology)",
+    consultationFee: 650,
   },
   {
     name: "Dr. Grace Park",
@@ -93,6 +120,9 @@ const DOCTORS = [
     location: "Clear Vision Eye Institute, Los Angeles, CA",
     consultationType: "in-person",
     bio: "Comprehensive eye care, from routine exams to advanced treatment.",
+    experience: 14,
+    qualification: "MBBS, MS (Ophthalmology)",
+    consultationFee: 600,
   },
 ];
 
@@ -109,10 +139,15 @@ const DEMO_PASSWORD = "password123";
 const ensureUser = async ({ name, email, role, ...profile }) => {
   const existing = await User.findOne({ email });
   if (existing) {
-    // Backfill doctor profile fields added after this account was first seeded.
-    if (role === "doctor" && !existing.specialization && profile.specialization) {
-      Object.assign(existing, profile);
-      await existing.save();
+    // Backfill doctor profile fields added after this account was first seeded
+    // (checks each field independently so later additions -- like experience --
+    // get filled in even though earlier ones -- like specialization -- already are).
+    if (role === "doctor") {
+      const missing = Object.keys(profile).some((key) => existing[key] == null && profile[key] != null);
+      if (missing) {
+        Object.assign(existing, profile);
+        await existing.save();
+      }
     }
     return existing;
   }

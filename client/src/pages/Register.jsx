@@ -18,6 +18,9 @@ const Register = () => {
     specialization: "",
     location: "",
     consultationType: "in-person",
+    experience: "",
+    qualification: "",
+    consultationFee: "",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -139,6 +142,51 @@ const Register = () => {
                   <option value="video">Video</option>
                   <option value="both">Both</option>
                 </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
+                    Years of experience
+                  </label>
+                  <input
+                    id="experience"
+                    type="number"
+                    min="0"
+                    name="experience"
+                    value={form.experience}
+                    onChange={handleChange}
+                    placeholder="e.g. 8"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="consultationFee" className="block text-sm font-medium text-gray-700 mb-1">
+                    Consultation fee
+                  </label>
+                  <input
+                    id="consultationFee"
+                    type="number"
+                    min="0"
+                    name="consultationFee"
+                    value={form.consultationFee}
+                    onChange={handleChange}
+                    placeholder="e.g. 500"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="qualification" className="block text-sm font-medium text-gray-700 mb-1">
+                  Qualification
+                </label>
+                <input
+                  id="qualification"
+                  name="qualification"
+                  value={form.qualification}
+                  onChange={handleChange}
+                  placeholder="e.g. MBBS, MD (General Medicine)"
+                  className={inputClass}
+                />
               </div>
             </>
           )}

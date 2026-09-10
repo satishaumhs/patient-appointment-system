@@ -45,6 +45,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    experience: {
+      type: Number,
+      min: 0,
+    },
+    qualification: {
+      type: String,
+      trim: true,
+    },
+    consultationFee: {
+      type: Number,
+      min: 0,
+    },
   },
   {
     timestamps: true,
