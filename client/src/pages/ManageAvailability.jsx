@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
+import { XIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-gray-900";
 
-const formatRange = (start, end) =>
-  `${new Date(start).toLocaleString([], {
-    dateStyle: "medium",
-    timeStyle: "short",
-  })} – ${new Date(end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+const formatTime = (d) => new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const ManageAvailability = () => {
   const [form, setForm] = useState({ date: "", startTime: "09:00", endTime: "17:00", slotMinutes: 30 });
@@ -60,6 +57,24 @@ const ManageAvailability = () => {
       setError(err.response?.data?.message || "Failed to remove slot");
     }
   };
+
+  const groupedSlots = useMemo(() => {
+    const groups = [];
+    const byDate = {};
+    slots.forEach((slot) => {
+      const dateKey = new Date(slot.startTime).toLocaleDateString([], {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+      if (!byDate[dateKey]) {
+        byDate[dateKey] = [];
+        groups.push(dateKey);
+      }
+      byDate[dateKey].push(slot);
+    });
+    return groups.map((dateKey) => ({ dateKey, daySlots: byDate[dateKey] }));
+  }, [slots]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -129,29 +144,31 @@ const ManageAvailability = () => {
       {slots.length === 0 ? (
         <p className="text-gray-500">No upcoming slots yet.</p>
       ) : (
-        <div className="space-y-2">
-          {slots.map((slot) => (
-            <div
-              key={slot._id}
-              className="flex items-center justify-between border border-gray-200 rounded-md px-4 py-2"
-            >
-              <span className="text-sm text-gray-700">{formatRange(slot.startTime, slot.endTime)}</span>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    slot.isBooked ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  {slot.isBooked ? "Booked" : "Open"}
-                </span>
-                {!slot.isBooked && (
-                  <button
-                    onClick={() => removeSlot(slot._id)}
-                    className="text-xs px-2 py-1 rounded-md bg-red-600 text-white hover:bg-red-700"
+        <div className="space-y-4">
+          {groupedSlots.map(({ dateKey, daySlots }) => (
+            <div key={dateKey}>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{dateKey}</h3>
+              <div className="flex flex-wrap gap-2">
+                {daySlots.map((slot) => (
+                  <div
+                    key={slot._id}
+                    className={`flex items-center gap-1.5 text-xs font-medium pl-3 py-1.5 rounded-full ${
+                      slot.isBooked ? "bg-blue-100 text-blue-800 pr-3" : "bg-green-100 text-green-800 pr-1.5"
+                    }`}
+                    title={slot.isBooked ? "Booked" : "Open"}
                   >
-                    Remove
-                  </button>
-                )}
+                    {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
+                    {!slot.isBooked && (
+                      <button
+                        onClick={() => removeSlot(slot._id)}
+                        aria-label="Remove slot"
+                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-green-200"
+                      >
+                        <XIcon className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           ))}
