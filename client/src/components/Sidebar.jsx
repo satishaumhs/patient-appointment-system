@@ -1,6 +1,14 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { GridIcon, CalendarPlusIcon, ClockIcon, UsersIcon, LogoutIcon, StethoscopeIcon } from "./icons";
+import {
+  GridIcon,
+  CalendarPlusIcon,
+  ClockIcon,
+  UsersIcon,
+  LogoutIcon,
+  StethoscopeIcon,
+  XIcon,
+} from "./icons";
 
 const NAV_ITEMS = {
   patient: [
@@ -18,7 +26,7 @@ const NAV_ITEMS = {
   ],
 };
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,11 +41,27 @@ const Sidebar = () => {
   const items = NAV_ITEMS[user.role] || [];
 
   return (
-    <aside className="w-60 shrink-0 bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0">
-      <Link to="/dashboard" className="flex items-center gap-2.5 px-5 h-16 border-b border-gray-200">
-        <img src="/logo.jpg" alt="My Health School" className="w-8 h-8 rounded-lg object-cover" />
-        <span className="text-base font-semibold text-gray-900">My Health School</span>
-      </Link>
+    // Uses the transform property (not Tailwind's translate-x-* utilities, which emit the
+    // newer standalone `translate` CSS property) for the off-canvas slide, for the widest
+    // possible browser compatibility on this dynamically-toggled, fixed-position element.
+    <aside
+      className={`w-60 shrink-0 bg-white border-r border-gray-200 flex flex-col h-screen fixed inset-y-0 left-0 z-40 transition-transform duration-200 ease-in-out lg:sticky lg:top-0 lg:z-auto lg:[transform:translateX(0)] ${
+        isOpen ? "[transform:translateX(0)]" : "[transform:translateX(-100%)]"
+      }`}
+    >
+      <div className="flex items-center justify-between px-5 h-16 border-b border-gray-200">
+        <Link to="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
+          <img src="/logo.jpg" alt="My Health School" className="w-8 h-8 rounded-lg object-cover" />
+          <span className="text-base font-semibold text-gray-900">My Health School</span>
+        </Link>
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1 text-gray-400 hover:text-gray-600"
+          aria-label="Close menu"
+        >
+          <XIcon className="w-5 h-5" />
+        </button>
+      </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {items.map(({ to, label, icon: Icon }) => {
@@ -46,6 +70,7 @@ const Sidebar = () => {
             <Link
               key={to}
               to={to}
+              onClick={onClose}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active ? "bg-teal-50 text-teal-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               }`}
