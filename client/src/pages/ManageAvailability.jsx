@@ -140,31 +140,46 @@ const ManageAvailability = () => {
         </button>
       </form>
 
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">Upcoming slots</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold text-gray-900">Upcoming slots</h2>
+        {slots.length > 0 && (
+          <div className="flex items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-teal-500" /> Open
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-gray-400" /> Booked
+            </span>
+          </div>
+        )}
+      </div>
       {slots.length === 0 ? (
         <p className="text-gray-500">No upcoming slots yet.</p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {groupedSlots.map(({ dateKey, daySlots }) => (
             <div key={dateKey}>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{dateKey}</h3>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2.5">{dateKey}</h3>
               <div className="flex flex-wrap gap-2">
                 {daySlots.map((slot) => (
                   <div
                     key={slot._id}
-                    className={`flex items-center gap-1.5 text-xs font-medium pl-3 py-1.5 rounded-full ${
-                      slot.isBooked ? "bg-blue-100 text-blue-800 pr-3" : "bg-green-100 text-green-800 pr-1.5"
+                    className={`group flex items-center gap-2 text-sm pl-3 pr-2.5 py-1.5 rounded-md border ${
+                      slot.isBooked
+                        ? "border-gray-200 bg-gray-50 text-gray-400"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-teal-300"
                     }`}
                     title={slot.isBooked ? "Booked" : "Open"}
                   >
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${slot.isBooked ? "bg-gray-400" : "bg-teal-500"}`} />
                     {formatTime(slot.startTime)}–{formatTime(slot.endTime)}
                     {!slot.isBooked && (
                       <button
                         onClick={() => removeSlot(slot._id)}
                         aria-label="Remove slot"
-                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-green-200"
+                        className="text-gray-300 hover:text-red-500"
                       >
-                        <XIcon className="w-3 h-3" />
+                        <XIcon className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
