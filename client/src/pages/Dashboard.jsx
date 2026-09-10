@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import StatCard from "../components/StatCard";
@@ -31,10 +31,12 @@ const emptyCounts = () => ({ pending: 0, confirmed: 0, completed: 0, cancelled: 
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [userCounts, setUserCounts] = useState({ doctor: 0, patient: 0 });
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,11 @@ const Dashboard = () => {
     return new Set(appointments.map((a) => a.patient?._id).filter(Boolean)).size;
   }, [appointments]);
 
+  const filteredAppointments = useMemo(
+    () => (statusFilter ? appointments.filter((a) => a.status === statusFilter) : appointments),
+    [appointments, statusFilter]
+  );
+
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Loading...</div>;
   }
@@ -140,10 +147,36 @@ const Dashboard = () => {
         )}
         {user.role === "admin" && (
           <>
-            <StatCard icon={CalendarIcon} label="Total appointments" value={appointments.length} tint="blue" />
-            <StatCard icon={ClockIcon} label="Pending" value={statusCounts.pending} tint="amber" />
-            <StatCard icon={StethoscopeIcon} label="Doctors" value={userCounts.doctor} tint="teal" />
-            <StatCard icon={UsersIcon} label="Patients" value={userCounts.patient} tint="purple" />
+            <StatCard
+              icon={CalendarIcon}
+              label="Total appointments"
+              value={appointments.length}
+              tint="blue"
+              active={statusFilter === ""}
+              onClick={() => setStatusFilter("")}
+            />
+            <StatCard
+              icon={ClockIcon}
+              label="Pending"
+              value={statusCounts.pending}
+              tint="amber"
+              active={statusFilter === "pending"}
+              onClick={() => setStatusFilter("pending")}
+            />
+            <StatCard
+              icon={StethoscopeIcon}
+              label="Doctors"
+              value={userCounts.doctor}
+              tint="teal"
+              onClick={() => navigate("/admin/users?role=doctor")}
+            />
+            <StatCard
+              icon={UsersIcon}
+              label="Patients"
+              value={userCounts.patient}
+              tint="purple"
+              onClick={() => navigate("/admin/users?role=patient")}
+            />
           </>
         )}
       </div>
@@ -164,17 +197,34 @@ const Dashboard = () => {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">
-          {user.role === "admin" ? "All appointments" : "Latest appointments"}
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-900">
+            {user.role === "admin"
+              ? statusFilter
+                ? `Pending appointments`
+                : "All appointments"
+              : "Latest appointments"}
+          </h2>
+          {user.role === "admin" && statusFilter && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter("")}
+              className="text-xs font-medium text-teal-700 hover:underline"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
 
         {actionError && <p className="text-sm text-red-600 mb-4">{actionError}</p>}
 
-        {appointments.length === 0 ? (
-          <p className="text-gray-500 text-sm">No appointments yet.</p>
+        {filteredAppointments.length === 0 ? (
+          <p className="text-gray-500 text-sm">
+            {statusFilter ? `No ${statusFilter} appointments.` : "No appointments yet."}
+          </p>
         ) : (
           <div className="space-y-3">
-            {appointments.map((appt) => (
+            {filteredAppointments.map((appt) => (
               <div
                 key={appt._id}
                 className="border border-gray-100 rounded-lg p-4 flex items-center justify-between"

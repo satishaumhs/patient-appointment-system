@@ -7,16 +7,25 @@ const TINTS = {
   gray: "bg-gray-100 text-gray-700",
 };
 
-const StatCard = ({ icon: Icon, label, value, tint = "teal" }) => (
-  <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
-    <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${TINTS[tint]}`}>
-      <Icon className="w-5 h-5" />
-    </div>
-    <div className="min-w-0">
-      <p className="text-xl font-semibold text-gray-900 leading-tight">{value}</p>
-      <p className="text-xs text-gray-500 truncate">{label}</p>
-    </div>
-  </div>
-);
+const StatCard = ({ icon: Icon, label, value, tint = "teal", onClick, active = false }) => {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`bg-white rounded-xl border p-4 flex items-center gap-3 text-left w-full ${
+        active ? "border-teal-500 ring-1 ring-teal-500" : "border-gray-200"
+      } ${onClick ? "hover:border-teal-400 hover:shadow-sm transition-all cursor-pointer" : ""}`}
+    >
+      <div className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 ${TINTS[tint]}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xl font-semibold text-gray-900 leading-tight">{value}</p>
+        <p className="text-xs text-gray-500 truncate">{label}</p>
+      </div>
+    </Tag>
+  );
+};
 
 export default StatCard;
