@@ -72,6 +72,7 @@ const BookAppointment = () => {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [bookingResult, setBookingResult] = useState(null);
+  const [touched, setTouched] = useState({});
 
   useEffect(() => {
     api.get("/users/doctors").then((res) => setDoctors(res.data));
@@ -136,9 +137,14 @@ const BookAppointment = () => {
   const selectedSlot = allSlots.find((s) => s._id === slotId);
 
   const handlePatientFormChange = (e) => setPatientForm({ ...patientForm, [e.target.name]: e.target.value });
+  const handlePatientFieldBlur = (e) => setTouched({ ...touched, [e.target.name]: true });
+
+  const phoneDigits = patientForm.phone.replace(/\D/g, "");
+  const phoneValid = phoneDigits.length >= 7 && phoneDigits.length <= 15;
+  const ageValid = patientForm.age !== "" && Number(patientForm.age) >= 0 && Number(patientForm.age) <= 120;
 
   const patientDetailsValid =
-    patientForm.name.trim() && patientForm.age && patientForm.gender && patientForm.phone.trim();
+    patientForm.name.trim() && ageValid && patientForm.gender && phoneValid;
 
   const handleContinueFromDetails = () => {
     setStep(preselectedDoctorId ? 3 : 2);
@@ -293,9 +299,13 @@ const BookAppointment = () => {
                   name="age"
                   value={patientForm.age}
                   onChange={handlePatientFormChange}
+                  onBlur={handlePatientFieldBlur}
                   required
                   className={inputClass}
                 />
+                {touched.age && patientForm.age !== "" && !ageValid && (
+                  <p className="text-xs text-red-600 mt-1">Enter an age between 0 and 120</p>
+                )}
               </div>
               <div>
                 <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
@@ -330,10 +340,14 @@ const BookAppointment = () => {
                   name="phone"
                   value={patientForm.phone}
                   onChange={handlePatientFormChange}
+                  onBlur={handlePatientFieldBlur}
                   required
                   className={iconInputClass}
                 />
               </div>
+              {touched.phone && patientForm.phone.trim() && !phoneValid && (
+                <p className="text-xs text-red-600 mt-1">Enter a valid phone number (7–15 digits)</p>
+              )}
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
