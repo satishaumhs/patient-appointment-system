@@ -1,7 +1,9 @@
-// One-off/re-runnable script to populate demo doctors, patients, availability,
-// and a few sample appointments. Safe to re-run: users are skipped if their
-// email already exists, and slot generation skips duplicates automatically
-// (same unique-index behavior as the real /api/availability endpoint).
+// One-off/re-runnable script to populate demo doctors, patients, a week of
+// availability, and a cross-matched set of appointments spread across many
+// different patients and doctors. Safe to re-run: users are skipped if their
+// email already exists, slot generation skips duplicates automatically (same
+// unique-index behavior as the real /api/availability endpoint), and bookings
+// dedupe on (patient, doctor, reason).
 //
 // Usage: cd server && node scripts/seed.js
 
@@ -132,7 +134,29 @@ const PATIENTS = [
   { name: "Aisha Rahman", email: "aisha.rahman@myhealthschool-demo.com" },
   { name: "Liam Foster", email: "liam.foster@myhealthschool-demo.com" },
   { name: "Sophia Nguyen", email: "sophia.nguyen@myhealthschool-demo.com" },
+  { name: "Noah Patel", email: "noah.patel@myhealthschool-demo.com" },
+  { name: "Ava Thompson", email: "ava.thompson@myhealthschool-demo.com" },
+  { name: "Ethan Wright", email: "ethan.wright@myhealthschool-demo.com" },
+  { name: "Isabella Garcia", email: "isabella.garcia@myhealthschool-demo.com" },
+  { name: "Mason Clarke", email: "mason.clarke@myhealthschool-demo.com" },
 ];
+
+// Reason pool per specialization, used to generate realistic (not-identical)
+// booking reasons when cross-matching patients to doctors below.
+const REASONS_BY_SPECIALIZATION = {
+  Cardiologist: ["Annual heart checkup", "Chest pain evaluation", "Blood pressure follow-up"],
+  "General Physician": ["General health checkup", "Flu-like symptoms", "Annual physical exam"],
+  Pediatrician: ["Child wellness visit", "Vaccination checkup", "Fever and cough"],
+  Dermatologist: ["Skin rash consultation", "Acne treatment follow-up", "Mole examination"],
+  Orthopedist: ["Knee pain evaluation", "Lower back pain consultation", "Sports injury follow-up"],
+  Psychiatrist: ["Anxiety management session", "Stress consultation", "Follow-up therapy session"],
+  "ENT Specialist": ["Sinus consultation", "Ear pain evaluation", "Hearing test follow-up"],
+  Gynecologist: ["Routine gynecological exam", "Prenatal checkup", "Follow-up consultation"],
+  Endocrinologist: ["Diabetes management review", "Thyroid function follow-up", "Hormonal imbalance consultation"],
+  Ophthalmologist: ["Routine eye exam", "Blurred vision evaluation", "Follow-up after eye treatment"],
+};
+
+const STATUS_ROTATION = ["pending", "confirmed", "completed", "cancelled"];
 
 const DEMO_PASSWORD = "password123";
 
@@ -194,25 +218,40 @@ const run = async () => {
   }
 
   for (const doctor of doctors) {
-    await generateSlotsForDoctor(doctor._id, 1);
-    await generateSlotsForDoctor(doctor._id, 2);
-    await generateSlotsForDoctor(doctor._id, 3);
+    for (let day = 1; day <= 7; day++) {
+      await generateSlotsForDoctor(doctor._id, day);
+    }
   }
-  console.log(`Ensured availability slots for ${doctors.length} doctor(s).`);
+  console.log(`Ensured a week of availability slots for ${doctors.length} doctor(s).`);
 
-  // A few sample appointments across different statuses, only created once
-  // (skipped on re-run if this patient already has any appointment).
-  const sampleBookings = [
-    { patient: patients[0], doctor: doctors[0], reason: "Annual physical checkup", status: "pending" },
-    { patient: patients[1], doctor: doctors[1], reason: "Follow-up consultation", status: "confirmed" },
-    { patient: patients[2], doctor: doctors[2], reason: "Persistent headache", status: "completed" },
-    { patient: patients[3], doctor: doctors[4], reason: "Knee pain evaluation", status: "pending" },
-    { patient: patients[4], doctor: doctors[6], reason: "Sinus consultation", status: "confirmed" },
-  ];
+  // Cross-match every patient to 3 different doctors (offsets 0/3/6 through the
+  // doctor list, wrapping around) so bookings spread realistically across both
+  // sides instead of piling onto a couple of accounts. Statuses rotate through
+  // pending/confirmed/completed/cancelled for a realistic mix. Idempotent per
+  // re-run: dedupes on the (patient, doctor, reason) triple rather than "this
+  // patient already has an appointment," since each patient now has several.
+  const bookings = [];
+  patients.forEach((patient, i) => {
+    [0, 3, 6].forEach((offset, j) => {
+      const doctor = doctors[(i + offset) % doctors.length];
+      const reasons = REASONS_BY_SPECIALIZATION[doctor.specialization] || ["General consultation"];
+      bookings.push({
+        patient,
+        doctor,
+        reason: reasons[j % reasons.length],
+        status: STATUS_ROTATION[(i * 3 + j) % STATUS_ROTATION.length],
+      });
+    });
+  });
 
-  for (const booking of sampleBookings) {
-    const alreadyHasOne = await Appointment.findOne({ patient: booking.patient._id });
-    if (alreadyHasOne) continue;
+  let created = 0;
+  for (const booking of bookings) {
+    const exists = await Appointment.findOne({
+      patient: booking.patient._id,
+      doctor: booking.doctor._id,
+      reason: booking.reason,
+    });
+    if (exists) continue;
 
     const slot = await Availability.findOne({ doctor: booking.doctor._id, isBooked: false }).sort({
       startTime: 1,
@@ -230,8 +269,16 @@ const run = async () => {
       reason: booking.reason,
       status: booking.status,
     });
+
+    // A cancelled appointment frees its slot back up, same as the real
+    // updateAppointmentStatus controller does.
+    if (booking.status === "cancelled") {
+      slot.isBooked = false;
+      await slot.save();
+    }
+    created++;
   }
-  console.log("Ensured sample appointments.");
+  console.log(`Ensured ${bookings.length} cross-doctor appointments (${created} newly created).`);
 
   console.log("\nDone. Demo accounts (all use password: " + DEMO_PASSWORD + "):");
   doctors.forEach((d) => console.log(`  doctor  ${d.email}`));

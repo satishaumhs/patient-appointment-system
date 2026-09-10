@@ -181,8 +181,8 @@ const Dashboard = () => {
               >
                 <div>
                   <p className="font-medium text-gray-900">
-                    {user.role === "patient" ? `Dr. ${appt.doctor?.name}` : appt.patient?.name}
-                    {user.role === "admin" && ` → Dr. ${appt.doctor?.name}`}
+                    {user.role === "patient" ? appt.doctor?.name : appt.patient?.name}
+                    {user.role === "admin" && ` → ${appt.doctor?.name}`}
                   </p>
                   <p className="text-sm text-gray-500">
                     {new Date(appt.date).toLocaleString()} · {appt.reason}
