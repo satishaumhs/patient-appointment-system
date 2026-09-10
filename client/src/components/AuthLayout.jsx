@@ -1,4 +1,4 @@
-import { ButterflyIcon, CheckIcon } from "./icons";
+import { CheckIcon } from "./icons";
 
 const HIGHLIGHTS = [
   "Book appointments in seconds",
@@ -13,8 +13,8 @@ const AuthLayout = ({ title, subtitle, children }) => (
       <div className="absolute -bottom-28 -left-16 w-72 h-72 rounded-full bg-cyan-400/10 blur-3xl" aria-hidden="true" />
 
       <div className="relative">
-        <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center mb-8">
-          <ButterflyIcon className="w-8 h-8 text-white" />
+        <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white shadow-lg shadow-black/20 mb-8">
+          <img src="/butterfly-logo.png" alt="My Health School" className="w-full h-full object-contain" />
         </div>
         <h2 className="text-3xl font-bold leading-tight mb-4">{title}</h2>
         <p className="text-teal-50/90 text-base mb-8 max-w-sm">{subtitle}</p>

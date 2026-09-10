@@ -28,7 +28,7 @@ const AppLayout = () => {
           >
             <MenuIcon className="w-6 h-6" />
           </button>
-          <Logo iconClassName="w-6 h-6 text-teal-600" textClassName="text-sm font-semibold text-gray-900" />
+          <Logo imgClassName="w-8 h-8" textClassName="text-sm font-semibold text-gray-900" />
         </header>
 
         <main className="flex-1 px-6 py-8">

@@ -52,7 +52,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     >
       <div className="flex items-center justify-between px-5 h-16 border-b border-gray-200">
         <Link to="/dashboard" className="flex items-center gap-2" onClick={onClose}>
-          <Logo iconClassName="w-6 h-6 text-teal-600" textClassName="text-base font-semibold text-gray-900" />
+          <Logo imgClassName="w-9 h-9" textClassName="text-base font-semibold text-gray-900" />
         </Link>
         <button
           onClick={onClose}

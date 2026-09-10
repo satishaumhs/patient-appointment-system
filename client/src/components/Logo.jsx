@@ -1,11 +1,9 @@
-import { ButterflyIcon } from "./icons";
-
 const Logo = ({
-  iconClassName = "w-7 h-7 text-teal-600",
+  imgClassName = "w-10 h-10",
   textClassName = "text-lg font-semibold text-gray-900",
 }) => (
   <>
-    <ButterflyIcon className={iconClassName} />
+    <img src="/butterfly-logo.png" alt="My Health School" className={`${imgClassName} object-contain`} />
     <span className={textClassName}>My Health School</span>
   </>
 );
