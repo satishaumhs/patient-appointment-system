@@ -151,3 +151,22 @@ export const LogoutIcon = (props) => (
     <path d="M21 12H9" />
   </svg>
 );
+
+export const UserIcon = (props) => (
+  <svg {...base} {...props}>
+    <circle cx="12" cy="8" r="3.5" />
+    <path d="M4.5 20c0-4 3.5-7 7.5-7s7.5 3 7.5 7" />
+  </svg>
+);
+
+export const ButterflyIcon = (props) => (
+  <svg {...base} {...props}>
+    <line x1="12" y1="6" x2="12" y2="18" />
+    <path d="M12 6Q10.5 3 9.5 2.5" />
+    <path d="M12 6Q13.5 3 14.5 2.5" />
+    <path d="M12 7Q4 3 3 8Q3.5 11.5 12 11" />
+    <path d="M12 7Q20 3 21 8Q20.5 11.5 12 11" />
+    <path d="M12 11Q7 12 6 16Q6.5 18.5 12 17" />
+    <path d="M12 11Q17 12 18 16Q17.5 18.5 12 17" />
+  </svg>
+);

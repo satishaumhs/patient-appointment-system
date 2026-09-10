@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
-import { MailIcon, LockIcon } from "../components/icons";
+import { MailIcon, LockIcon, UserIcon } from "../components/icons";
 
 const inputClass =
-  "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
+  "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors";
 const iconInputClass =
-  "w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
+  "w-full rounded-lg border border-gray-300 pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors";
 
 const Register = () => {
   const [form, setForm] = useState({
@@ -52,17 +52,31 @@ const Register = () => {
       title="Join us today."
       subtitle="Create an account to book appointments, manage your schedule, and stay connected with your care team."
     >
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create an account</h1>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/60 p-8">
+        <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-5">
+          <UserIcon className="w-6 h-6" />
+        </div>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Create an account</h1>
+        <p className="text-sm text-gray-500 mb-6">Get started with My Health School in a minute.</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input id="name" name="name" value={form.name} onChange={handleChange} required className={inputClass} />
+            <div className="relative">
+              <UserIcon className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                id="name"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+                className={iconInputClass}
+              />
+            </div>
           </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <div className="relative">
-              <MailIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <MailIcon className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 id="email"
                 type="email"
@@ -77,7 +91,7 @@ const Register = () => {
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <div className="relative">
-              <LockIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <LockIcon className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 id="password"
                 type="password"
@@ -195,12 +209,12 @@ const Register = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-teal-600 text-white py-2 font-medium hover:bg-teal-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-teal-600 text-white py-2.5 font-medium hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm shadow-teal-600/30"
           >
             {submitting ? "Creating account..." : "Register"}
           </button>
         </form>
-        <p className="text-sm text-gray-600 mt-4">
+        <p className="text-sm text-gray-600 mt-5">
           Already have an account?{" "}
           <Link to="/login" className="text-teal-700 font-medium hover:underline">
             Log in

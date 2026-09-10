@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
+import Logo from "./Logo";
 import { MenuIcon } from "./icons";
 
 const AppLayout = () => {
@@ -27,8 +28,7 @@ const AppLayout = () => {
           >
             <MenuIcon className="w-6 h-6" />
           </button>
-          <img src="/logo.jpg" alt="My Health School" className="w-7 h-7 rounded-lg object-cover" />
-          <span className="text-sm font-semibold text-gray-900">My Health School</span>
+          <Logo iconClassName="w-6 h-6 text-teal-600" textClassName="text-sm font-semibold text-gray-900" />
         </header>
 
         <main className="flex-1 px-6 py-8">

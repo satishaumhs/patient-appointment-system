@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Logo from "./Logo";
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -12,9 +13,8 @@ const Navbar = () => {
 
   return (
     <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
-      <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2.5">
-        <img src="/logo.jpg" alt="My Health School" className="w-9 h-9 rounded-lg object-cover" />
-        <span className="text-lg font-semibold text-gray-900">My Health School</span>
+      <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2">
+        <Logo />
       </Link>
       {user ? (
         <div className="flex items-center gap-4">

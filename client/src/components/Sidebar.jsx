@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import Logo from "./Logo";
 import {
   GridIcon,
   CalendarPlusIcon,
@@ -50,9 +51,8 @@ const Sidebar = ({ isOpen, onClose }) => {
       }`}
     >
       <div className="flex items-center justify-between px-5 h-16 border-b border-gray-200">
-        <Link to="/dashboard" className="flex items-center gap-2.5" onClick={onClose}>
-          <img src="/logo.jpg" alt="My Health School" className="w-8 h-8 rounded-lg object-cover" />
-          <span className="text-base font-semibold text-gray-900">My Health School</span>
+        <Link to="/dashboard" className="flex items-center gap-2" onClick={onClose}>
+          <Logo iconClassName="w-6 h-6 text-teal-600" textClassName="text-base font-semibold text-gray-900" />
         </Link>
         <button
           onClick={onClose}
