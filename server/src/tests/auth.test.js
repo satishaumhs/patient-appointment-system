@@ -2,15 +2,16 @@ const request = require("supertest");
 const app = require("../app");
 
 describe("Auth", () => {
-  it("registers a new patient and sets a session cookie", async () => {
+  it("registers a new doctor and sets a session cookie", async () => {
     const res = await request(app).post("/api/auth/register").send({
       name: "Alice",
       email: "alice@example.com",
       password: "password123",
+      specialization: "Cardiologist",
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.user.role).toBe("patient");
+    expect(res.body.user.role).toBe("doctor");
     expect(res.body.user.email).toBe("alice@example.com");
     expect(res.headers["set-cookie"][0]).toMatch(/token=/);
   });
@@ -20,34 +21,37 @@ describe("Auth", () => {
       name: "Alice",
       email: "alice@example.com",
       password: "password123",
+      specialization: "Cardiologist",
     });
 
     const res = await request(app).post("/api/auth/register").send({
       name: "Alice Again",
       email: "alice@example.com",
       password: "password123",
+      specialization: "Cardiologist",
     });
 
     expect(res.status).toBe(400);
   });
 
-  it("rejects self-registration as admin", async () => {
+  it("ignores a requested admin role -- self-registration always creates a doctor", async () => {
     const res = await request(app).post("/api/auth/register").send({
       name: "Sneaky",
       email: "sneaky@example.com",
       password: "password123",
+      specialization: "Cardiologist",
       role: "admin",
     });
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(201);
+    expect(res.body.user.role).toBe("doctor");
   });
 
-  it("requires a specialization for doctor registration", async () => {
+  it("requires a specialization to register", async () => {
     const res = await request(app).post("/api/auth/register").send({
       name: "Dr. No Spec",
       email: "nospec@example.com",
       password: "password123",
-      role: "doctor",
     });
 
     expect(res.status).toBe(400);
@@ -56,7 +60,6 @@ describe("Auth", () => {
       name: "Dr. Has Spec",
       email: "hasspec@example.com",
       password: "password123",
-      role: "doctor",
       specialization: "Cardiologist",
     });
 
@@ -68,6 +71,7 @@ describe("Auth", () => {
       name: "Bob",
       email: "bob@example.com",
       password: "password123",
+      specialization: "Cardiologist",
     });
 
     const good = await request(app)

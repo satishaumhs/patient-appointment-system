@@ -1,22 +1,9 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
-import {
-  GridIcon,
-  CalendarPlusIcon,
-  ClockIcon,
-  UsersIcon,
-  LogoutIcon,
-  StethoscopeIcon,
-  XIcon,
-} from "./icons";
+import { GridIcon, ClockIcon, UsersIcon, LogoutIcon, XIcon } from "./icons";
 
 const NAV_ITEMS = {
-  patient: [
-    { to: "/dashboard", label: "Dashboard", icon: GridIcon },
-    { to: "/doctors", label: "Find a Doctor", icon: StethoscopeIcon },
-    { to: "/book", label: "Book Appointment", icon: CalendarPlusIcon },
-  ],
   doctor: [
     { to: "/dashboard", label: "Dashboard", icon: GridIcon },
     { to: "/availability", label: "Manage Availability", icon: ClockIcon },

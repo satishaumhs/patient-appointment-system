@@ -159,8 +159,8 @@ const ManageAvailability = () => {
 
   const patientsToday = useMemo(() => {
     const key = todayKey();
-    const ids = appointments.filter((a) => toDateKey(a.date) === key).map((a) => a.patient?._id);
-    return new Set(ids).size;
+    const phones = appointments.filter((a) => toDateKey(a.date) === key).map((a) => a.patientInfo?.phone);
+    return new Set(phones.filter(Boolean)).size;
   }, [appointments]);
 
   const isPastSelectedDate = new Date(selectedDate) < new Date(todayKey());

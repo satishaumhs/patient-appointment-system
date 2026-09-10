@@ -158,3 +158,16 @@ export const UserIcon = (props) => (
     <path d="M4.5 20c0-4 3.5-7 7.5-7s7.5 3 7.5 7" />
   </svg>
 );
+
+export const PhoneIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M4.5 4h3.5l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5v3.5a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 3 5.6 1.5 1.5 0 0 1 4.5 4z" />
+  </svg>
+);
+
+export const TicketIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8z" />
+    <line x1="10" y1="6" x2="10" y2="18" strokeDasharray="2 2" />
+  </svg>
+);

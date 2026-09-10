@@ -11,11 +11,17 @@ const { generateSlotsValidator } = require("../validators/availabilityValidators
 
 const router = express.Router();
 
-router.use(protect);
+router.post("/", protect, authorize("doctor"), generateSlotsValidator, validateRequest, generateSlots);
 
-router.post("/", authorize("doctor"), generateSlotsValidator, validateRequest, generateSlots);
-router.get("/mine", authorize("doctor"), getMySlots);
+// NOTE: "/mine" must stay registered before the "/:doctorId" wildcard below --
+// otherwise a request to /availability/mine would match :doctorId="mine"
+// first (a public route), throw a CastError casting "mine" to an ObjectId,
+// and this doctor-only endpoint would incorrectly 404.
+router.get("/mine", protect, authorize("doctor"), getMySlots);
+
+// Public: anonymous patients need to see open slots before booking.
 router.get("/:doctorId", getAvailableSlots);
-router.delete("/:id", authorize("doctor"), deleteSlot);
+
+router.delete("/:id", protect, authorize("doctor"), deleteSlot);
 
 module.exports = router;

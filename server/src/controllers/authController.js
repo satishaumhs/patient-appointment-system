@@ -8,7 +8,6 @@ const registerUser = asyncHandler(async (req, res) => {
     name,
     email,
     password,
-    role,
     specialization,
     location,
     consultationType,
@@ -28,20 +27,19 @@ const registerUser = asyncHandler(async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  // Only doctors self-register now (admin is DB-only); every field below applies.
   const user = await User.create({
     name,
     email,
     password: hashedPassword,
-    role: role || "patient",
-    ...(role === "doctor" && {
-      specialization,
-      location,
-      consultationType,
-      bio,
-      experience,
-      qualification,
-      consultationFee,
-    }),
+    role: "doctor",
+    specialization,
+    location,
+    consultationType,
+    bio,
+    experience,
+    qualification,
+    consultationFee,
   });
 
   generateToken(res, user._id);

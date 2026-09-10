@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import BookAppointment from "./pages/BookAppointment";
+import AppointmentStatus from "./pages/AppointmentStatus";
 import ManageAvailability from "./pages/ManageAvailability";
 import AdminUsers from "./pages/AdminUsers";
 import Landing from "./pages/Landing";
@@ -22,6 +23,10 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/doctors" element={<FindDoctor />} />
+            <Route path="/doctors/:id" element={<DoctorProfile />} />
+            <Route path="/book" element={<BookAppointment />} />
+            <Route path="/status" element={<AppointmentStatus />} />
           </Route>
 
           <Route element={<AppLayout />}>
@@ -30,30 +35,6 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctors"
-              element={
-                <ProtectedRoute>
-                  <FindDoctor />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/doctors/:id"
-              element={
-                <ProtectedRoute>
-                  <DoctorProfile />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/book"
-              element={
-                <ProtectedRoute allowedRoles={["patient"]}>
-                  <BookAppointment />
                 </ProtectedRoute>
               }
             />

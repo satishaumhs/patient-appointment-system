@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import MonthCalendar from "../components/MonthCalendar";
 import {
@@ -9,10 +9,17 @@ import {
   MapPinIcon,
   BriefcaseIcon,
   GraduationCapIcon,
+  UserIcon,
+  PhoneIcon,
+  MailIcon,
+  TicketIcon,
+  CheckCircleIcon,
 } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
+const iconInputClass =
+  "w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 const CONSULTATION_LABELS = {
   "in-person": "In-person",
@@ -31,14 +38,24 @@ const toDateKey = (d) => {
 const formatTime = (d) => new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 const STEPS = [
-  { id: 1, label: "Choose doctor" },
-  { id: 2, label: "Select date & time" },
-  { id: 3, label: "Confirm" },
+  { id: 1, label: "Your details" },
+  { id: 2, label: "Choose doctor" },
+  { id: 3, label: "Date & time" },
+  { id: 4, label: "Confirm" },
 ];
 
 const BookAppointment = () => {
   const [searchParams] = useSearchParams();
   const preselectedDoctorId = searchParams.get("doctorId") || "";
+
+  const [patientForm, setPatientForm] = useState({
+    name: "",
+    age: "",
+    gender: "",
+    phone: "",
+    email: "",
+    city: "",
+  });
 
   const [doctors, setDoctors] = useState([]);
   const [search, setSearch] = useState("");
@@ -49,11 +66,12 @@ const BookAppointment = () => {
   const [selectedDate, setSelectedDate] = useState("");
   const [slotId, setSlotId] = useState("");
   const [reason, setReason] = useState("");
-  const [step, setStep] = useState(preselectedDoctorId ? 2 : 1);
+  const [appointmentType, setAppointmentType] = useState("in-person");
+  const [step, setStep] = useState(1);
   const [loadingDoctor, setLoadingDoctor] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const navigate = useNavigate();
+  const [bookingResult, setBookingResult] = useState(null);
 
   useEffect(() => {
     api.get("/users/doctors").then((res) => setDoctors(res.data));
@@ -70,6 +88,7 @@ const BookAppointment = () => {
       .then(([docRes, slotsRes]) => {
         setDoctorProfile(docRes.data);
         setAllSlots(slotsRes.data);
+        setAppointmentType(docRes.data.consultationType === "video" ? "video" : "in-person");
       })
       .finally(() => setLoadingDoctor(false));
   }, [doctorId]);
@@ -116,18 +135,27 @@ const BookAppointment = () => {
 
   const selectedSlot = allSlots.find((s) => s._id === slotId);
 
+  const handlePatientFormChange = (e) => setPatientForm({ ...patientForm, [e.target.name]: e.target.value });
+
+  const patientDetailsValid =
+    patientForm.name.trim() && patientForm.age && patientForm.gender && patientForm.phone.trim();
+
+  const handleContinueFromDetails = () => {
+    setStep(preselectedDoctorId ? 3 : 2);
+  };
+
   const handleSelectDoctor = (id) => {
     setDoctorId(id);
     setSelectedDate("");
     setSlotId("");
-    setStep(2);
+    setStep(3);
   };
 
   const handleChangeDoctor = () => {
     setDoctorId("");
     setSelectedDate("");
     setSlotId("");
-    setStep(1);
+    setStep(2);
   };
 
   const handleSelectDate = (dateKey) => {
@@ -140,8 +168,20 @@ const BookAppointment = () => {
     setError("");
     setSubmitting(true);
     try {
-      await api.post("/appointments", { slotId, reason });
-      navigate("/dashboard");
+      const res = await api.post("/appointments", {
+        slotId,
+        reason,
+        appointmentType,
+        patientInfo: {
+          name: patientForm.name.trim(),
+          age: Number(patientForm.age),
+          gender: patientForm.gender,
+          phone: patientForm.phone.trim(),
+          email: patientForm.email.trim() || undefined,
+          city: patientForm.city.trim() || undefined,
+        },
+      });
+      setBookingResult(res.data);
     } catch (err) {
       setError(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || "Booking failed");
     } finally {
@@ -149,10 +189,52 @@ const BookAppointment = () => {
     }
   };
 
+  if (bookingResult) {
+    return (
+      <div className="max-w-md mx-auto">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <div className="w-14 h-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
+            <CheckCircleIcon className="w-7 h-7" />
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900 mb-1">Appointment request sent</h1>
+          <p className="text-sm text-gray-500 mb-6">
+            Your request has been submitted. We'll contact you on your registered mobile number.
+          </p>
+
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <p className="text-xs text-gray-500 flex items-center justify-center gap-1.5 mb-1">
+              <TicketIcon className="w-4 h-4" />
+              Reference number
+            </p>
+            <p className="text-2xl font-semibold text-gray-900 tracking-wide">{bookingResult.referenceNumber}</p>
+          </div>
+
+          <div className="text-left space-y-1.5 text-sm text-gray-700 mb-6">
+            <p className="font-medium text-gray-900">{doctorProfile?.name}</p>
+            <p className="text-gray-500">{doctorProfile?.specialization || "General Practice"}</p>
+            <p>{new Date(bookingResult.date).toLocaleDateString([], { dateStyle: "medium" })}</p>
+            <p>{formatTime(bookingResult.date)}</p>
+            <p className="text-amber-700 bg-amber-50 inline-block px-2 py-1 rounded-md text-xs font-medium mt-1">
+              Status: Pending doctor confirmation
+            </p>
+          </div>
+
+          <p className="text-xs text-gray-400 mb-4">
+            Save this reference number — you'll need it, along with your phone number, to check your appointment
+            status later.
+          </p>
+          <Link to="/status" className="text-sm font-medium text-teal-700 hover:underline">
+            Check appointment status
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">Book an appointment</h1>
-      <p className="text-sm text-gray-500 mb-6">Select a doctor, choose a date and time slot, and confirm.</p>
+      <p className="text-sm text-gray-500 mb-6">No account needed — tell us about yourself, pick a doctor and time, and confirm.</p>
 
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         {STEPS.map((s, i) => (
@@ -179,6 +261,125 @@ const BookAppointment = () => {
       </div>
 
       {step === 1 && (
+        <div className="max-w-md bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Tell us a little about yourself</h2>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Full name
+              </label>
+              <div className="relative">
+                <UserIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="name"
+                  name="name"
+                  value={patientForm.name}
+                  onChange={handlePatientFormChange}
+                  required
+                  className={iconInputClass}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="age" className="block text-sm font-medium text-gray-700 mb-1">
+                  Age
+                </label>
+                <input
+                  id="age"
+                  type="number"
+                  min="0"
+                  max="120"
+                  name="age"
+                  value={patientForm.age}
+                  onChange={handlePatientFormChange}
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  name="gender"
+                  value={patientForm.gender}
+                  onChange={handlePatientFormChange}
+                  required
+                  className={inputClass}
+                >
+                  <option value="" disabled>
+                    Select
+                  </option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Mobile number
+              </label>
+              <div className="relative">
+                <PhoneIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="phone"
+                  type="tel"
+                  name="phone"
+                  value={patientForm.phone}
+                  onChange={handlePatientFormChange}
+                  required
+                  className={iconInputClass}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email (optional)
+              </label>
+              <div className="relative">
+                <MailIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="email"
+                  type="email"
+                  name="email"
+                  value={patientForm.email}
+                  onChange={handlePatientFormChange}
+                  className={iconInputClass}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                City (optional)
+              </label>
+              <div className="relative">
+                <MapPinIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="city"
+                  name="city"
+                  value={patientForm.city}
+                  onChange={handlePatientFormChange}
+                  className={iconInputClass}
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={!patientDetailsValid}
+              onClick={handleContinueFromDetails}
+              className="w-full rounded-md bg-teal-600 text-white py-2.5 font-medium hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
         <div>
           <div className="flex flex-col sm:flex-row gap-3 mb-5">
             <input
@@ -252,9 +453,9 @@ const BookAppointment = () => {
         </div>
       )}
 
-      {step >= 2 && doctorId && loadingDoctor && <p className="text-sm text-gray-500">Loading doctor...</p>}
+      {step >= 3 && doctorId && loadingDoctor && <p className="text-sm text-gray-500">Loading doctor...</p>}
 
-      {step >= 2 && doctorId && doctorProfile && (
+      {step >= 3 && doctorId && doctorProfile && (
         <div className="grid lg:grid-cols-[300px_1fr] gap-5">
           <div className="bg-white rounded-xl border border-gray-200 p-5 h-fit">
             <div className="flex items-start justify-between mb-3">
@@ -309,7 +510,7 @@ const BookAppointment = () => {
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            {step === 2 && (
+            {step === 3 && (
               <div className="grid sm:grid-cols-2 gap-6">
                 <MonthCalendar
                   selectedDate={selectedDate}
@@ -359,7 +560,7 @@ const BookAppointment = () => {
                   <button
                     type="button"
                     disabled={!slotId}
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(4)}
                     className="w-full mt-6 rounded-md bg-teal-600 text-white py-2.5 font-medium hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Next: Confirm appointment
@@ -368,10 +569,14 @@ const BookAppointment = () => {
               </div>
             )}
 
-            {step === 3 && selectedSlot && (
+            {step === 4 && selectedSlot && (
               <form onSubmit={handleConfirm} className="max-w-md">
                 <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-1.5 text-sm">
-                  <p className="font-medium text-gray-900">{doctorProfile.name}</p>
+                  <p className="font-medium text-gray-900">{patientForm.name}</p>
+                  <p className="text-gray-500">
+                    {patientForm.age} years • {patientForm.gender}
+                  </p>
+                  <p className="font-medium text-gray-900 pt-1.5">{doctorProfile.name}</p>
                   <p className="text-gray-500">{doctorProfile.specialization || "General Practice"}</p>
                   <p className="text-gray-700 pt-1.5 flex items-center gap-1.5">
                     <CalendarIcon className="w-4 h-4 text-gray-400" />
@@ -383,15 +588,35 @@ const BookAppointment = () => {
                   </p>
                 </div>
 
+                {doctorProfile.consultationType === "both" && (
+                  <div className="mb-4">
+                    <p className="block text-sm font-medium text-gray-700 mb-1.5">Appointment type</p>
+                    <div className="flex gap-4">
+                      {["in-person", "video"].map((type) => (
+                        <label key={type} className="flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="radio"
+                            name="appointmentType"
+                            value={type}
+                            checked={appointmentType === type}
+                            onChange={(e) => setAppointmentType(e.target.value)}
+                          />
+                          {CONSULTATION_LABELS[type]}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
-                  Reason for visit
+                  Reason for visit (optional)
                 </label>
                 <textarea
                   id="reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  required
                   rows={3}
+                  placeholder="e.g. Fever and headache for 2 days"
                   className={`${inputClass} mb-4`}
                 />
 
@@ -400,7 +625,7 @@ const BookAppointment = () => {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
+                    onClick={() => setStep(3)}
                     className="rounded-md border border-gray-300 text-gray-700 px-4 py-2.5 text-sm font-medium hover:bg-gray-50"
                   >
                     Back

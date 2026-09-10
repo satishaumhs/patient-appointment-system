@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 
 const ROLE_STYLES = {
-  patient: "bg-gray-100 text-gray-700",
   doctor: "bg-blue-100 text-blue-800",
   admin: "bg-purple-100 text-purple-800",
 };
@@ -11,7 +10,6 @@ const ROLE_STYLES = {
 const TABS = [
   { value: "", label: "All" },
   { value: "doctor", label: "Doctors" },
-  { value: "patient", label: "Patients" },
   { value: "admin", label: "Admins" },
 ];
 
@@ -44,7 +42,7 @@ const AdminUsers = () => {
   );
 
   const counts = useMemo(() => {
-    const c = { doctor: 0, patient: 0, admin: 0 };
+    const c = { doctor: 0, admin: 0 };
     users.forEach((u) => {
       if (c[u.role] != null) c[u.role] += 1;
     });

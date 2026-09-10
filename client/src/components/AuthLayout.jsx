@@ -1,9 +1,9 @@
 import { CheckIcon } from "./icons";
 
 const HIGHLIGHTS = [
-  "Book appointments in seconds",
-  "Track your visits in one place",
-  "Trusted by patients and doctors",
+  "Patients book without creating an account",
+  "Manage your availability in real time",
+  "Accept, reject, or reschedule requests",
 ];
 
 const AuthLayout = ({ title, subtitle, children }) => (

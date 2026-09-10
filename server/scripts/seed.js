@@ -1,9 +1,10 @@
-// One-off/re-runnable script to populate demo doctors, patients, a week of
-// availability, and a cross-matched set of appointments spread across many
-// different patients and doctors. Safe to re-run: users are skipped if their
-// email already exists, slot generation skips duplicates automatically (same
-// unique-index behavior as the real /api/availability endpoint), and bookings
-// dedupe on (patient, doctor, reason).
+// One-off/re-runnable script to populate demo doctors, a week of
+// availability, and a cross-matched set of appointment requests (with
+// embedded patient contact info, matching the anonymous-booking model --
+// there's no patient User to seed anymore). Safe to re-run: doctors are
+// skipped if their email already exists, slot generation skips duplicates
+// automatically (same unique-index behavior as the real /api/availability
+// endpoint), and bookings dedupe on (phone, doctor, reason).
 //
 // Usage: cd server && node scripts/seed.js
 
@@ -14,6 +15,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../src/models/User");
 const Availability = require("../src/models/Availability");
 const Appointment = require("../src/models/Appointment");
+const generateReferenceNumber = require("../src/utils/generateReferenceNumber");
 
 const DOCTORS = [
   {
@@ -128,17 +130,20 @@ const DOCTORS = [
   },
 ];
 
-const PATIENTS = [
-  { name: "Emily Carter", email: "emily.carter@myhealthschool-demo.com" },
-  { name: "Michael Torres", email: "michael.torres@myhealthschool-demo.com" },
-  { name: "Aisha Rahman", email: "aisha.rahman@myhealthschool-demo.com" },
-  { name: "Liam Foster", email: "liam.foster@myhealthschool-demo.com" },
-  { name: "Sophia Nguyen", email: "sophia.nguyen@myhealthschool-demo.com" },
-  { name: "Noah Patel", email: "noah.patel@myhealthschool-demo.com" },
-  { name: "Ava Thompson", email: "ava.thompson@myhealthschool-demo.com" },
-  { name: "Ethan Wright", email: "ethan.wright@myhealthschool-demo.com" },
-  { name: "Isabella Garcia", email: "isabella.garcia@myhealthschool-demo.com" },
-  { name: "Mason Clarke", email: "mason.clarke@myhealthschool-demo.com" },
+// Not Users -- there's no patient login anymore. This is just the embedded
+// patientInfo used to generate realistic demo appointment requests, the same
+// way a real anonymous booking would carry it.
+const PATIENT_INFO_POOL = [
+  { name: "Emily Carter", age: 34, gender: "female", phone: "9876500001", city: "New York" },
+  { name: "Michael Torres", age: 41, gender: "male", phone: "9876500002", city: "Austin" },
+  { name: "Aisha Rahman", age: 28, gender: "female", phone: "9876500003", city: "San Jose" },
+  { name: "Liam Foster", age: 52, gender: "male", phone: "9876500004", city: "Seattle" },
+  { name: "Sophia Nguyen", age: 23, gender: "female", phone: "9876500005", city: "Denver" },
+  { name: "Noah Patel", age: 45, gender: "male", phone: "9876500006", city: "Chicago" },
+  { name: "Ava Thompson", age: 31, gender: "female", phone: "9876500007", city: "Boston" },
+  { name: "Ethan Wright", age: 38, gender: "male", phone: "9876500008", city: "Miami" },
+  { name: "Isabella Garcia", age: 27, gender: "female", phone: "9876500009", city: "Houston" },
+  { name: "Mason Clarke", age: 60, gender: "male", phone: "9876500010", city: "Los Angeles" },
 ];
 
 // Reason pool per specialization, used to generate realistic (not-identical)
@@ -156,28 +161,26 @@ const REASONS_BY_SPECIALIZATION = {
   Ophthalmologist: ["Routine eye exam", "Blurred vision evaluation", "Follow-up after eye treatment"],
 };
 
-const STATUS_ROTATION = ["pending", "confirmed", "completed", "cancelled"];
+const STATUS_ROTATION = ["pending", "confirmed", "completed", "cancelled", "rejected"];
 
 const DEMO_PASSWORD = "password123";
 
-const ensureUser = async ({ name, email, role, ...profile }) => {
+const ensureDoctor = async ({ name, email, ...profile }) => {
   const existing = await User.findOne({ email });
   if (existing) {
     // Backfill doctor profile fields added after this account was first seeded
     // (checks each field independently so later additions -- like experience --
     // get filled in even though earlier ones -- like specialization -- already are).
-    if (role === "doctor") {
-      const missing = Object.keys(profile).some((key) => existing[key] == null && profile[key] != null);
-      if (missing) {
-        Object.assign(existing, profile);
-        await existing.save();
-      }
+    const missing = Object.keys(profile).some((key) => existing[key] == null && profile[key] != null);
+    if (missing) {
+      Object.assign(existing, profile);
+      await existing.save();
     }
     return existing;
   }
 
   const hashedPassword = await bcrypt.hash(DEMO_PASSWORD, 10);
-  return User.create({ name, email, password: hashedPassword, role, ...profile });
+  return User.create({ name, email, password: hashedPassword, role: "doctor", ...profile });
 };
 
 const generateSlotsForDoctor = async (doctorId, daysFromNow) => {
@@ -209,12 +212,7 @@ const run = async () => {
 
   const doctors = [];
   for (const d of DOCTORS) {
-    doctors.push(await ensureUser({ ...d, role: "doctor" }));
-  }
-
-  const patients = [];
-  for (const p of PATIENTS) {
-    patients.push(await ensureUser({ ...p, role: "patient" }));
+    doctors.push(await ensureDoctor(d));
   }
 
   for (const doctor of doctors) {
@@ -227,16 +225,15 @@ const run = async () => {
   // Cross-match every patient to 3 different doctors (offsets 0/3/6 through the
   // doctor list, wrapping around) so bookings spread realistically across both
   // sides instead of piling onto a couple of accounts. Statuses rotate through
-  // pending/confirmed/completed/cancelled for a realistic mix. Idempotent per
-  // re-run: dedupes on the (patient, doctor, reason) triple rather than "this
-  // patient already has an appointment," since each patient now has several.
+  // pending/confirmed/completed/cancelled/rejected for a realistic mix.
+  // Idempotent per re-run: dedupes on (phone, doctor, reason).
   const bookings = [];
-  patients.forEach((patient, i) => {
+  PATIENT_INFO_POOL.forEach((patientInfo, i) => {
     [0, 3, 6].forEach((offset, j) => {
       const doctor = doctors[(i + offset) % doctors.length];
       const reasons = REASONS_BY_SPECIALIZATION[doctor.specialization] || ["General consultation"];
       bookings.push({
-        patient,
+        patientInfo,
         doctor,
         reason: reasons[j % reasons.length],
         status: STATUS_ROTATION[(i * 3 + j) % STATUS_ROTATION.length],
@@ -247,7 +244,7 @@ const run = async () => {
   let created = 0;
   for (const booking of bookings) {
     const exists = await Appointment.findOne({
-      patient: booking.patient._id,
+      "patientInfo.phone": booking.patientInfo.phone,
       doctor: booking.doctor._id,
       reason: booking.reason,
     });
@@ -262,27 +259,29 @@ const run = async () => {
     await slot.save();
 
     await Appointment.create({
-      patient: booking.patient._id,
+      patientInfo: booking.patientInfo,
       doctor: booking.doctor._id,
       slot: slot._id,
       date: slot.startTime,
       reason: booking.reason,
+      appointmentType: "in-person",
+      referenceNumber: await generateReferenceNumber(),
       status: booking.status,
     });
 
-    // A cancelled appointment frees its slot back up, same as the real
-    // updateAppointmentStatus controller does.
-    if (booking.status === "cancelled") {
+    // A cancelled/rejected appointment frees its slot back up, same as the
+    // real updateAppointmentStatus controller does.
+    if (booking.status === "cancelled" || booking.status === "rejected") {
       slot.isBooked = false;
       await slot.save();
     }
     created++;
   }
-  console.log(`Ensured ${bookings.length} cross-doctor appointments (${created} newly created).`);
+  console.log(`Ensured ${bookings.length} cross-doctor appointment requests (${created} newly created).`);
 
-  console.log("\nDone. Demo accounts (all use password: " + DEMO_PASSWORD + "):");
+  console.log("\nDone. Demo doctor accounts (all use password: " + DEMO_PASSWORD + "):");
   doctors.forEach((d) => console.log(`  doctor  ${d.email}`));
-  patients.forEach((p) => console.log(`  patient ${p.email}`));
+  console.log("\nPatients don't have accounts -- appointment requests were seeded with embedded contact info.");
 
   await mongoose.disconnect();
 };

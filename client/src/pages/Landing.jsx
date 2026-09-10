@@ -24,8 +24,8 @@ const FEATURES = [
     ),
   },
   {
-    title: "Manage with ease",
-    description: "Track upcoming visits and cancel from one simple dashboard, anytime.",
+    title: "No account needed",
+    description: "Just tell us who you are when you book. Check your status anytime with your reference number.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
         <circle cx="12" cy="12" r="9" />
@@ -57,23 +57,29 @@ const Landing = () => {
             Online appointment booking
           </span>
           <p className="mt-5 text-lg text-gray-600 max-w-2xl mx-auto">
-            Book appointments with our doctors in minutes. Patients, doctors, and staff
-            all manage their care from one simple, secure platform.
+            Book an appointment with our doctors in minutes — no account needed. Just tell us who
+            you are and when works for you.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/register"
+              to="/book"
               className="w-full sm:w-auto rounded-md bg-teal-600 text-white px-6 py-3 font-medium hover:bg-teal-700 transition-colors"
             >
               Book an appointment
             </Link>
             <Link
-              to="/login"
+              to="/doctors"
               className="w-full sm:w-auto rounded-md border border-gray-300 text-gray-700 px-6 py-3 font-medium hover:border-gray-400 transition-colors"
             >
-              Log in
+              Find a Doctor
             </Link>
           </div>
+          <p className="mt-4 text-sm text-gray-500">
+            Already booked?{" "}
+            <Link to="/status" className="text-teal-700 font-medium hover:underline">
+              Check your appointment status
+            </Link>
+          </p>
         </div>
       </section>
 

@@ -38,7 +38,7 @@ const deleteUser = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "User not found" });
   }
 
-  await Appointment.deleteMany({ $or: [{ patient: user._id }, { doctor: user._id }] });
+  await Appointment.deleteMany({ doctor: user._id });
   await Availability.deleteMany({ doctor: user._id });
   await user.deleteOne();
 

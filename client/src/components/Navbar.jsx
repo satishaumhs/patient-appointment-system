@@ -32,15 +32,15 @@ const Navbar = () => {
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Link to="/login" className="text-sm font-medium text-gray-700 hover:text-gray-900">
-            Log in
+            Doctor Login
           </Link>
           <Link
-            to="/register"
+            to="/book"
             className="text-sm px-3 py-1.5 rounded-md bg-teal-600 text-white hover:bg-teal-700 font-medium"
           >
-            Register
+            Book Appointment
           </Link>
         </div>
       )}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/AuthLayout";
-import { MailIcon, LockIcon, UserIcon } from "../components/icons";
+import { MailIcon, LockIcon, UserIcon, StethoscopeIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors";
@@ -14,7 +14,6 @@ const Register = () => {
     name: "",
     email: "",
     password: "",
-    role: "patient",
     specialization: "",
     location: "",
     consultationType: "in-person",
@@ -49,15 +48,15 @@ const Register = () => {
 
   return (
     <AuthLayout
-      title="Join us today."
-      subtitle="Create an account to book appointments, manage your schedule, and stay connected with your care team."
+      title="Join as a doctor."
+      subtitle="Patients book by reference number, no account needed on their side. Register here to manage your own availability and appointment requests."
     >
       <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/60 p-8">
         <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-5">
-          <UserIcon className="w-6 h-6" />
+          <StethoscopeIcon className="w-6 h-6" />
         </div>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Create an account</h1>
-        <p className="text-sm text-gray-500 mb-6">Get started with My Health School in a minute.</p>
+        <h1 className="text-2xl font-semibold text-gray-900 mb-1">Doctor registration</h1>
+        <p className="text-sm text-gray-500 mb-6">Set up your account to manage availability and requests.</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
@@ -104,106 +103,95 @@ const Register = () => {
               />
             </div>
           </div>
+
           <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">I am a</label>
-            <select id="role" name="role" value={form.role} onChange={handleChange} className={inputClass}>
-              <option value="patient">Patient</option>
-              <option value="doctor">Doctor</option>
+            <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-1">
+              Specialization
+            </label>
+            <input
+              id="specialization"
+              name="specialization"
+              value={form.specialization}
+              onChange={handleChange}
+              placeholder="e.g. Cardiologist, General Physician"
+              required
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+              Location
+            </label>
+            <input
+              id="location"
+              name="location"
+              value={form.location}
+              onChange={handleChange}
+              placeholder="e.g. Downtown Clinic, New York, NY"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="consultationType" className="block text-sm font-medium text-gray-700 mb-1">
+              Consultation type
+            </label>
+            <select
+              id="consultationType"
+              name="consultationType"
+              value={form.consultationType}
+              onChange={handleChange}
+              className={inputClass}
+            >
+              <option value="in-person">In-person</option>
+              <option value="video">Video</option>
+              <option value="both">Both</option>
             </select>
           </div>
-
-          {form.role === "doctor" && (
-            <>
-              <div>
-                <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-1">
-                  Specialization
-                </label>
-                <input
-                  id="specialization"
-                  name="specialization"
-                  value={form.specialization}
-                  onChange={handleChange}
-                  placeholder="e.g. Cardiologist, General Physician"
-                  required
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                  Location
-                </label>
-                <input
-                  id="location"
-                  name="location"
-                  value={form.location}
-                  onChange={handleChange}
-                  placeholder="e.g. Downtown Clinic, New York, NY"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="consultationType" className="block text-sm font-medium text-gray-700 mb-1">
-                  Consultation type
-                </label>
-                <select
-                  id="consultationType"
-                  name="consultationType"
-                  value={form.consultationType}
-                  onChange={handleChange}
-                  className={inputClass}
-                >
-                  <option value="in-person">In-person</option>
-                  <option value="video">Video</option>
-                  <option value="both">Both</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
-                    Years of experience
-                  </label>
-                  <input
-                    id="experience"
-                    type="number"
-                    min="0"
-                    name="experience"
-                    value={form.experience}
-                    onChange={handleChange}
-                    placeholder="e.g. 8"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="consultationFee" className="block text-sm font-medium text-gray-700 mb-1">
-                    Consultation fee
-                  </label>
-                  <input
-                    id="consultationFee"
-                    type="number"
-                    min="0"
-                    name="consultationFee"
-                    value={form.consultationFee}
-                    onChange={handleChange}
-                    placeholder="e.g. 500"
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="qualification" className="block text-sm font-medium text-gray-700 mb-1">
-                  Qualification
-                </label>
-                <input
-                  id="qualification"
-                  name="qualification"
-                  value={form.qualification}
-                  onChange={handleChange}
-                  placeholder="e.g. MBBS, MD (General Medicine)"
-                  className={inputClass}
-                />
-              </div>
-            </>
-          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-1">
+                Years of experience
+              </label>
+              <input
+                id="experience"
+                type="number"
+                min="0"
+                name="experience"
+                value={form.experience}
+                onChange={handleChange}
+                placeholder="e.g. 8"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label htmlFor="consultationFee" className="block text-sm font-medium text-gray-700 mb-1">
+                Consultation fee
+              </label>
+              <input
+                id="consultationFee"
+                type="number"
+                min="0"
+                name="consultationFee"
+                value={form.consultationFee}
+                onChange={handleChange}
+                placeholder="e.g. 500"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="qualification" className="block text-sm font-medium text-gray-700 mb-1">
+              Qualification
+            </label>
+            <input
+              id="qualification"
+              name="qualification"
+              value={form.qualification}
+              onChange={handleChange}
+              placeholder="e.g. MBBS, MD (General Medicine)"
+              className={inputClass}
+            />
+          </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button

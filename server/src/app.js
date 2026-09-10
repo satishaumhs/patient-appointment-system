@@ -2,13 +2,13 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
 
 const authRoutes = require("./routes/authRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const userRoutes = require("./routes/userRoutes");
 const availabilityRoutes = require("./routes/availabilityRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
+const { authLimiter } = require("./middleware/rateLimiters");
 
 const app = express();
 
@@ -21,14 +21,6 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many attempts, please try again later" },
-});
 
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/appointments", appointmentRoutes);

@@ -6,17 +6,8 @@ const registerValidator = [
   body("password")
     .isLength({ min: 6 })
     .withMessage("Password must be at least 6 characters"),
-  // Admin is intentionally excluded: self-registration must never grant admin.
-  // Promote a user to admin directly in the database.
-  body("role")
-    .optional()
-    .isIn(["patient", "doctor"])
-    .withMessage("Invalid role"),
-  body("specialization")
-    .if(body("role").equals("doctor"))
-    .trim()
-    .notEmpty()
-    .withMessage("Specialization is required for doctor accounts"),
+  // Every self-registered account is a doctor; admin is DB-only promotion.
+  body("specialization").trim().notEmpty().withMessage("Specialization is required"),
   body("location").optional().trim(),
   body("consultationType").optional().isIn(["in-person", "video", "both"]).withMessage("Invalid consultation type"),
   body("bio").optional().trim(),

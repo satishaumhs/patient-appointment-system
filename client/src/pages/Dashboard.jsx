@@ -1,42 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import StatCard from "../components/StatCard";
 import StatusDonut from "../components/StatusDonut";
 import WeekBarChart from "../components/WeekBarChart";
-import {
-  CalendarIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  UsersIcon,
-  StethoscopeIcon,
-} from "../components/icons";
+import ReschedulePanel from "../components/ReschedulePanel";
+import { CalendarIcon, ClockIcon, CheckCircleIcon, UsersIcon, StethoscopeIcon } from "../components/icons";
 
 const STATUS_STYLES = {
   pending: "bg-yellow-100 text-yellow-800",
   confirmed: "bg-blue-100 text-blue-800",
   completed: "bg-gray-100 text-gray-700",
+  rejected: "bg-red-100 text-red-700",
   cancelled: "bg-red-100 text-red-700",
 };
 
 const TITLES = {
-  patient: "My appointments",
   doctor: "Your schedule",
   admin: "All appointments",
 };
 
-const emptyCounts = () => ({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+const emptyCounts = () => ({ pending: 0, confirmed: 0, completed: 0, rejected: 0, cancelled: 0 });
 
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
-  const [userCounts, setUserCounts] = useState({ doctor: 0, patient: 0 });
+  const [userCounts, setUserCounts] = useState({ doctor: 0 });
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [reschedulingId, setReschedulingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,10 +42,9 @@ const Dashboard = () => {
     setAppointments(apptRes.data);
 
     if (usersRes) {
-      const counts = { doctor: 0, patient: 0 };
+      const counts = { doctor: 0 };
       usersRes.data.forEach((u) => {
         if (u.role === "doctor") counts.doctor += 1;
-        if (u.role === "patient") counts.patient += 1;
       });
       setUserCounts(counts);
     }
@@ -102,7 +96,7 @@ const Dashboard = () => {
   }, [appointments]);
 
   const uniquePatients = useMemo(() => {
-    return new Set(appointments.map((a) => a.patient?._id).filter(Boolean)).size;
+    return new Set(appointments.map((a) => a.patientInfo?.phone).filter(Boolean)).size;
   }, [appointments]);
 
   const filteredAppointments = useMemo(
@@ -116,27 +110,9 @@ const Dashboard = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">{TITLES[user.role]}</h1>
-        {user.role === "patient" && (
-          <Link
-            to="/doctors"
-            className="rounded-md bg-teal-600 text-white px-4 py-2 text-sm font-medium hover:bg-teal-700"
-          >
-            Book appointment
-          </Link>
-        )}
-      </div>
+      <h1 className="text-2xl font-semibold text-gray-900 mb-6">{TITLES[user.role]}</h1>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        {user.role === "patient" && (
-          <>
-            <StatCard icon={ClockIcon} label="Upcoming" value={statusCounts.pending + statusCounts.confirmed} tint="amber" />
-            <StatCard icon={CheckCircleIcon} label="Completed" value={statusCounts.completed} tint="teal" />
-            <StatCard icon={XCircleIcon} label="Cancelled" value={statusCounts.cancelled} tint="red" />
-            <StatCard icon={CalendarIcon} label="Total visits" value={appointments.length} tint="blue" />
-          </>
-        )}
+      <div className={`grid grid-cols-2 gap-4 mb-6 ${user.role === "admin" ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
         {user.role === "doctor" && (
           <>
             <StatCard icon={ClockIcon} label="Awaiting response" value={statusCounts.pending} tint="amber" />
@@ -170,13 +146,6 @@ const Dashboard = () => {
               tint="teal"
               onClick={() => navigate("/admin/users?role=doctor")}
             />
-            <StatCard
-              icon={UsersIcon}
-              label="Patients"
-              value={userCounts.patient}
-              tint="purple"
-              onClick={() => navigate("/admin/users?role=patient")}
-            />
           </>
         )}
       </div>
@@ -207,7 +176,7 @@ const Dashboard = () => {
               ? statusFilter
                 ? `${statusFilter[0].toUpperCase()}${statusFilter.slice(1)} appointments`
                 : "All appointments"
-              : "Latest appointments"}
+              : "Appointment requests"}
           </h2>
           {user.role === "admin" && statusFilter && (
             <button
@@ -229,66 +198,83 @@ const Dashboard = () => {
         ) : (
           <div className="space-y-3">
             {filteredAppointments.map((appt) => (
-              <div
-                key={appt._id}
-                className="border border-gray-100 rounded-lg p-4 flex items-center justify-between"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {user.role === "patient" ? appt.doctor?.name : appt.patient?.name}
-                    {user.role === "admin" && ` → ${appt.doctor?.name}`}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {new Date(appt.date).toLocaleString()} · {appt.reason}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[appt.status]}`}
-                  >
-                    {appt.status}
-                  </span>
-                  {user.role === "doctor" && appt.status === "pending" && (
-                    <>
+              <div key={appt._id} className="border border-gray-100 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {appt.patientInfo?.name}
+                      {user.role === "admin" && ` → ${appt.doctor?.name}`}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {appt.patientInfo?.age} yrs • {appt.patientInfo?.gender} • {new Date(appt.date).toLocaleString()}
+                      {appt.reason ? ` · ${appt.reason}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[appt.status]}`}
+                    >
+                      {appt.status}
+                    </span>
+                    {user.role === "doctor" && appt.status === "pending" && (
+                      <>
+                        <button
+                          onClick={() => updateStatus(appt._id, "confirmed")}
+                          className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => setReschedulingId(reschedulingId === appt._id ? null : appt._id)}
+                          className="text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        >
+                          Reschedule
+                        </button>
+                        <button
+                          onClick={() => updateStatus(appt._id, "rejected")}
+                          className="text-xs px-2 py-1 rounded-md bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {user.role === "doctor" && appt.status === "confirmed" && (
+                      <>
+                        <button
+                          onClick={() => updateStatus(appt._id, "completed")}
+                          className="text-xs px-2 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700"
+                        >
+                          Mark complete
+                        </button>
+                        <button
+                          onClick={() => setReschedulingId(reschedulingId === appt._id ? null : appt._id)}
+                          className="text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        >
+                          Reschedule
+                        </button>
+                      </>
+                    )}
+                    {user.role === "admin" && (
                       <button
-                        onClick={() => updateStatus(appt._id, "confirmed")}
-                        className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        onClick={() => updateStatus(appt._id, "cancelled")}
+                        onClick={() => removeAppointment(appt._id)}
                         className="text-xs px-2 py-1 rounded-md bg-red-600 text-white hover:bg-red-700"
                       >
-                        Decline
+                        Delete
                       </button>
-                    </>
-                  )}
-                  {user.role === "doctor" && appt.status === "confirmed" && (
-                    <button
-                      onClick={() => updateStatus(appt._id, "completed")}
-                      className="text-xs px-2 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700"
-                    >
-                      Mark complete
-                    </button>
-                  )}
-                  {user.role === "patient" && ["pending", "confirmed"].includes(appt.status) && (
-                    <button
-                      onClick={() => updateStatus(appt._id, "cancelled")}
-                      className="text-xs px-2 py-1 rounded-md bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  {user.role === "admin" && (
-                    <button
-                      onClick={() => removeAppointment(appt._id)}
-                      className="text-xs px-2 py-1 rounded-md bg-red-600 text-white hover:bg-red-700"
-                    >
-                      Delete
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
+
+                {reschedulingId === appt._id && (
+                  <ReschedulePanel
+                    appointmentId={appt._id}
+                    onCancel={() => setReschedulingId(null)}
+                    onRescheduled={() => {
+                      setReschedulingId(null);
+                      load();
+                    }}
+                  />
+                )}
               </div>
             ))}
           </div>

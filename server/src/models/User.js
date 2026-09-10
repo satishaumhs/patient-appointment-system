@@ -23,11 +23,11 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["patient", "doctor", "admin"],
-      default: "patient",
+      enum: ["doctor", "admin"],
+      default: "doctor",
     },
 
-    // Doctor-only profile fields (unused for patient/admin accounts).
+    // Doctor-only profile fields (unused for admin accounts).
     specialization: {
       type: String,
       trim: true,

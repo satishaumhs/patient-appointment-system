@@ -32,7 +32,7 @@ const Login = () => {
   return (
     <AuthLayout
       title="Welcome back."
-      subtitle="Log in to manage your appointments, connect with your doctor, and stay on top of your care."
+      subtitle="Log in to manage your availability and appointment requests."
     >
       <div className="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-gray-200/60 p-8">
         <div className="w-12 h-12 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center mb-5">

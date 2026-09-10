@@ -2,10 +2,11 @@ const COLORS = {
   pending: "#f59e0b",
   confirmed: "#2563eb",
   completed: "#0d9488",
+  rejected: "#7c3aed",
   cancelled: "#dc2626",
 };
 
-const ORDER = ["pending", "confirmed", "completed", "cancelled"];
+const ORDER = ["pending", "confirmed", "completed", "rejected", "cancelled"];
 
 const StatusDonut = ({ counts, activeKey = "", onSelect }) => {
   const total = ORDER.reduce((sum, key) => sum + (counts[key] || 0), 0);

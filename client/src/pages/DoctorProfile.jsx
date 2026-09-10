@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/axios";
-import { useAuth } from "../context/AuthContext";
 import { StethoscopeIcon, BriefcaseIcon, GraduationCapIcon, MapPinIcon } from "../components/icons";
 
 const CONSULTATION_LABELS = {
@@ -12,7 +11,6 @@ const CONSULTATION_LABELS = {
 
 const DoctorProfile = () => {
   const { id } = useParams();
-  const { user } = useAuth();
   const [doctor, setDoctor] = useState(null);
   const [hasAvailability, setHasAvailability] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -94,14 +92,12 @@ const DoctorProfile = () => {
               <div />
             )}
 
-            {user?.role === "patient" && (
-              <Link
-                to={`/book?doctorId=${doctor._id}`}
-                className="rounded-md bg-teal-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-teal-700"
-              >
-                Book an appointment
-              </Link>
-            )}
+            <Link
+              to={`/book?doctorId=${doctor._id}`}
+              className="rounded-md bg-teal-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-teal-700"
+            >
+              Book an appointment
+            </Link>
           </div>
         </div>
       </div>

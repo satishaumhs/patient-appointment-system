@@ -5,14 +5,20 @@ const User = require("../models/User");
 const registerAndGetCookie = async (overrides = {}) => {
   const res = await request(app)
     .post("/api/auth/register")
-    .send({ name: "Test User", email: "test@example.com", password: "password123", ...overrides });
+    .send({
+      name: "Test User",
+      email: "test@example.com",
+      password: "password123",
+      specialization: "General Physician",
+      ...overrides,
+    });
   return { cookie: res.headers["set-cookie"], userId: res.body.user.id };
 };
 
 describe("Admin user management", () => {
   it("blocks non-admins from listing users", async () => {
-    const patient = await registerAndGetCookie({ email: "p@example.com" });
-    const res = await request(app).get("/api/users").set("Cookie", patient.cookie);
+    const doctor = await registerAndGetCookie({ email: "p@example.com" });
+    const res = await request(app).get("/api/users").set("Cookie", doctor.cookie);
     expect(res.status).toBe(403);
   });
 
