@@ -7,7 +7,7 @@ const COLORS = {
 
 const ORDER = ["pending", "confirmed", "completed", "cancelled"];
 
-const StatusDonut = ({ counts }) => {
+const StatusDonut = ({ counts, activeKey = "", onSelect }) => {
   const total = ORDER.reduce((sum, key) => sum + (counts[key] || 0), 0);
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -37,6 +37,9 @@ const StatusDonut = ({ counts }) => {
               strokeWidth="12"
               strokeDasharray={`${seg.length} ${circumference - seg.length}`}
               strokeDashoffset={seg.offset}
+              opacity={activeKey && activeKey !== seg.key ? 0.35 : 1}
+              onClick={onSelect ? () => onSelect(seg.key) : undefined}
+              className={onSelect ? "cursor-pointer" : undefined}
             />
           ))}
         </g>
@@ -47,14 +50,26 @@ const StatusDonut = ({ counts }) => {
           Total
         </text>
       </svg>
-      <div className="space-y-2">
-        {ORDER.map((key) => (
-          <div key={key} className="flex items-center gap-2 text-sm">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[key] }} />
-            <span className="text-gray-600 capitalize">{key}</span>
-            <span className="text-gray-900 font-medium">{counts[key] || 0}</span>
-          </div>
-        ))}
+      <div className="space-y-1">
+        {ORDER.map((key) => {
+          const Tag = onSelect ? "button" : "div";
+          return (
+            <Tag
+              key={key}
+              type={onSelect ? "button" : undefined}
+              onClick={onSelect ? () => onSelect(activeKey === key ? "" : key) : undefined}
+              className={`flex items-center gap-2 text-sm w-full px-1.5 py-1 rounded-md text-left ${
+                onSelect ? "hover:bg-gray-50 cursor-pointer" : ""
+              } ${activeKey === key ? "bg-gray-50" : ""}`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[key] }} />
+              <span className={`capitalize ${activeKey === key ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+                {key}
+              </span>
+              <span className="text-gray-900 font-medium">{counts[key] || 0}</span>
+            </Tag>
+          );
+        })}
       </div>
     </div>
   );

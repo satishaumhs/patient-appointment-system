@@ -191,7 +191,11 @@ const Dashboard = () => {
           {appointments.length === 0 ? (
             <p className="text-sm text-gray-500">No appointments yet.</p>
           ) : (
-            <StatusDonut counts={statusCounts} />
+            <StatusDonut
+              counts={statusCounts}
+              activeKey={user.role === "admin" ? statusFilter : ""}
+              onSelect={user.role === "admin" ? setStatusFilter : undefined}
+            />
           )}
         </div>
       </div>
@@ -201,7 +205,7 @@ const Dashboard = () => {
           <h2 className="text-sm font-semibold text-gray-900">
             {user.role === "admin"
               ? statusFilter
-                ? `Pending appointments`
+                ? `${statusFilter[0].toUpperCase()}${statusFilter.slice(1)} appointments`
                 : "All appointments"
               : "Latest appointments"}
           </h2>
