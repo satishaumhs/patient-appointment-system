@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AuthLayout from "../components/AuthLayout";
+import { MailIcon, LockIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
+const iconInputClass =
+  "w-full rounded-md border border-gray-300 pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 const Register = () => {
   const [form, setForm] = useState({
@@ -41,110 +45,121 @@ const Register = () => {
   };
 
   return (
-    <div className="max-w-sm mx-auto mt-16 px-6 pb-16">
-      <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create an account</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-          <input id="name" name="name" value={form.name} onChange={handleChange} required className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-          <input
-            id="email"
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input
-            id="password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            required
-            minLength={6}
-            className={inputClass}
-          />
-        </div>
-        <div>
-          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">I am a</label>
-          <select id="role" name="role" value={form.role} onChange={handleChange} className={inputClass}>
-            <option value="patient">Patient</option>
-            <option value="doctor">Doctor</option>
-          </select>
-        </div>
-
-        {form.role === "doctor" && (
-          <>
-            <div>
-              <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-1">
-                Specialization
-              </label>
+    <AuthLayout
+      title="Join us today."
+      subtitle="Create an account to book appointments, manage your schedule, and stay connected with your care team."
+    >
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
+        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create an account</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <input id="name" name="name" value={form.name} onChange={handleChange} required className={inputClass} />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <div className="relative">
+              <MailIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
-                id="specialization"
-                name="specialization"
-                value={form.specialization}
+                id="email"
+                type="email"
+                name="email"
+                value={form.email}
                 onChange={handleChange}
-                placeholder="e.g. Cardiologist, General Physician"
                 required
-                className={inputClass}
+                className={iconInputClass}
               />
             </div>
-            <div>
-              <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                Location
-              </label>
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <div className="relative">
+              <LockIcon className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
-                id="location"
-                name="location"
-                value={form.location}
+                id="password"
+                type="password"
+                name="password"
+                value={form.password}
                 onChange={handleChange}
-                placeholder="e.g. Downtown Clinic, New York, NY"
-                className={inputClass}
+                required
+                minLength={6}
+                className={iconInputClass}
               />
             </div>
-            <div>
-              <label htmlFor="consultationType" className="block text-sm font-medium text-gray-700 mb-1">
-                Consultation type
-              </label>
-              <select
-                id="consultationType"
-                name="consultationType"
-                value={form.consultationType}
-                onChange={handleChange}
-                className={inputClass}
-              >
-                <option value="in-person">In-person</option>
-                <option value="video">Video</option>
-                <option value="both">Both</option>
-              </select>
-            </div>
-          </>
-        )}
+          </div>
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">I am a</label>
+            <select id="role" name="role" value={form.role} onChange={handleChange} className={inputClass}>
+              <option value="patient">Patient</option>
+              <option value="doctor">Doctor</option>
+            </select>
+          </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-teal-600 text-white py-2 font-medium hover:bg-teal-700 disabled:opacity-50"
-        >
-          {submitting ? "Creating account..." : "Register"}
-        </button>
-      </form>
-      <p className="text-sm text-gray-600 mt-4">
-        Already have an account?{" "}
-        <Link to="/login" className="text-gray-900 underline">
-          Log in
-        </Link>
-      </p>
-    </div>
+          {form.role === "doctor" && (
+            <>
+              <div>
+                <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-1">
+                  Specialization
+                </label>
+                <input
+                  id="specialization"
+                  name="specialization"
+                  value={form.specialization}
+                  onChange={handleChange}
+                  placeholder="e.g. Cardiologist, General Physician"
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                  Location
+                </label>
+                <input
+                  id="location"
+                  name="location"
+                  value={form.location}
+                  onChange={handleChange}
+                  placeholder="e.g. Downtown Clinic, New York, NY"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="consultationType" className="block text-sm font-medium text-gray-700 mb-1">
+                  Consultation type
+                </label>
+                <select
+                  id="consultationType"
+                  name="consultationType"
+                  value={form.consultationType}
+                  onChange={handleChange}
+                  className={inputClass}
+                >
+                  <option value="in-person">In-person</option>
+                  <option value="video">Video</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+            </>
+          )}
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-md bg-teal-600 text-white py-2 font-medium hover:bg-teal-700 disabled:opacity-50"
+          >
+            {submitting ? "Creating account..." : "Register"}
+          </button>
+        </form>
+        <p className="text-sm text-gray-600 mt-4">
+          Already have an account?{" "}
+          <Link to="/login" className="text-teal-700 font-medium hover:underline">
+            Log in
+          </Link>
+        </p>
+      </div>
+    </AuthLayout>
   );
 };
 

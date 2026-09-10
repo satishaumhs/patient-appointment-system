@@ -74,6 +74,26 @@ export const StethoscopeIcon = (props) => (
   </svg>
 );
 
+export const MailIcon = (props) => (
+  <svg {...base} {...props}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M3 7l9 6 9-6" />
+  </svg>
+);
+
+export const LockIcon = (props) => (
+  <svg {...base} {...props}>
+    <rect x="5" y="11" width="14" height="9" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
+export const CheckIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M5 12.5l4.5 4.5L19 7" />
+  </svg>
+);
+
 export const LogoutIcon = (props) => (
   <svg {...base} {...props}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
