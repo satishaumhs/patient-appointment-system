@@ -22,6 +22,15 @@ const formatExpiry = (value) => {
 
 const formatCvv = (value) => value.replace(/\D/g, "").slice(0, 3);
 
+const isValidExpiry = (value) => {
+  const match = value.match(/^(\d{2})\/(\d{2})$/);
+  if (!match) return false;
+  const month = Number(match[1]);
+  return month >= 1 && month <= 12;
+};
+
+const UPI_ID_PATTERN = /^[\w.-]+@[\w.-]+$/;
+
 const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, onPaid }) => {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState("card");
@@ -36,9 +45,22 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
 
   const isActive = !INACTIVE_STATUSES.includes(appointmentStatus);
 
+  const detailsValid =
+    method === "card"
+      ? cardNumber.replace(/\s/g, "").length === 16 && isValidExpiry(expiry) && cvv.length === 3
+      : UPI_ID_PATTERN.test(upiId);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!detailsValid) {
+      setError(
+        method === "card"
+          ? "Enter a 16-digit card number, a valid expiry (MM/YY), and a 3-digit CVV"
+          : "Enter a valid UPI ID (e.g. yourname@bank)"
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await api.post(`/appointments/status/${referenceNumber}/pay`, { phone, method });
@@ -110,6 +132,7 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                     value={cardNumber}
                     onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                     maxLength={19}
+                    required
                     className={`col-span-2 ${plainInputClass}`}
                   />
                   <input
@@ -118,6 +141,7 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                     value={expiry}
                     onChange={(e) => setExpiry(formatExpiry(e.target.value))}
                     maxLength={5}
+                    required
                     className={plainInputClass}
                   />
                   <input
@@ -126,6 +150,7 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                     value={cvv}
                     onChange={(e) => setCvv(formatCvv(e.target.value))}
                     maxLength={3}
+                    required
                     className={plainInputClass}
                   />
                 </div>
@@ -134,6 +159,7 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                   placeholder="yourname@upi"
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
+                  required
                   className={plainInputClass}
                 />
               )}
@@ -148,7 +174,7 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !detailsValid}
                   className="flex-1 rounded-md bg-teal-600 text-white py-2 text-xs font-medium hover:bg-teal-700 disabled:opacity-50"
                 >
                   {submitting ? "Processing..." : `Pay ₹${payment.amount} (Demo)`}
