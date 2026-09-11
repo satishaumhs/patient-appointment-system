@@ -85,8 +85,10 @@ const ManageAvailability = () => {
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [error, setError] = useState("");
 
-  const [clickAction, setClickAction] = useState("remove");
-  const [blockReason, setBlockReason] = useState("meeting");
+  const [blockForm, setBlockForm] = useState({ slotId: "", reason: "meeting" });
+  const [blockMessage, setBlockMessage] = useState("");
+  const [blockError, setBlockError] = useState("");
+  const [blockSubmitting, setBlockSubmitting] = useState(false);
 
   const [bulkForm, setBulkForm] = useState({
     date: "",
@@ -125,8 +127,6 @@ const ManageAvailability = () => {
           await api.patch(`/availability/${existing._id}/unblock`);
         } else if (existing.isBooked) {
           return;
-        } else if (clickAction === "block") {
-          await api.patch(`/availability/${existing._id}/block`, { reason: blockReason });
         } else {
           await api.delete(`/availability/${existing._id}`);
         }
@@ -141,6 +141,30 @@ const ManageAvailability = () => {
       await loadAll();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update slot");
+    }
+  };
+
+  const openSlotsForSelectedDate = useMemo(
+    () => slots.filter((s) => toDateKey(s.startTime) === selectedDate && !s.isBooked && !s.blockedReason),
+    [slots, selectedDate]
+  );
+
+  const handleBlockChange = (e) => setBlockForm({ ...blockForm, [e.target.name]: e.target.value });
+
+  const handleBlockSubmit = async (e) => {
+    e.preventDefault();
+    setBlockError("");
+    setBlockMessage("");
+    setBlockSubmitting(true);
+    try {
+      await api.patch(`/availability/${blockForm.slotId}/block`, { reason: blockForm.reason });
+      setBlockMessage("Slot blocked.");
+      setBlockForm({ ...blockForm, slotId: "" });
+      loadAll();
+    } catch (err) {
+      setBlockError(err.response?.data?.message || "Failed to block that slot");
+    } finally {
+      setBlockSubmitting(false);
     }
   };
 
@@ -290,31 +314,6 @@ const ManageAvailability = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 mb-4 text-xs">
-            <span className="text-gray-500">Clicking an open slot will:</span>
-            <select
-              value={clickAction}
-              onChange={(e) => setClickAction(e.target.value)}
-              className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-600"
-            >
-              <option value="remove">Remove it</option>
-              <option value="block">Block it</option>
-            </select>
-            {clickAction === "block" && (
-              <select
-                value={blockReason}
-                onChange={(e) => setBlockReason(e.target.value)}
-                className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-600"
-              >
-                {BLOCK_REASONS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    Reason: {r.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
           {isPastSelectedDate ? (
@@ -378,6 +377,68 @@ const ManageAvailability = () => {
           )}
         </div>
       </div>
+
+      <details className="bg-white rounded-xl border border-gray-200 p-5 mb-5">
+        <summary className="text-sm font-semibold text-gray-900 cursor-pointer">
+          Block a time slot
+        </summary>
+        <form onSubmit={handleBlockSubmit} className="grid grid-cols-2 gap-4 mt-4 max-w-lg">
+          <p className="col-span-2 text-xs text-gray-500 -mt-1">
+            Blocking an open time on{" "}
+            {new Date(selectedDate).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })} —
+            pick a different date above to block a slot on another day.
+          </p>
+          <div className="col-span-2">
+            <label htmlFor="blockSlotId" className="block text-sm font-medium text-gray-700 mb-1">
+              Time
+            </label>
+            <select
+              id="blockSlotId"
+              name="slotId"
+              value={blockForm.slotId}
+              onChange={handleBlockChange}
+              required
+              className={inputClass}
+            >
+              <option value="" disabled>
+                {openSlotsForSelectedDate.length === 0 ? "No open times on this date" : "Select an open time"}
+              </option>
+              {openSlotsForSelectedDate.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {formatDisplayTime(new Date(s.startTime).toTimeString().slice(0, 5))}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label htmlFor="blockReasonSelect" className="block text-sm font-medium text-gray-700 mb-1">
+              Reason
+            </label>
+            <select
+              id="blockReasonSelect"
+              name="reason"
+              value={blockForm.reason}
+              onChange={handleBlockChange}
+              className={inputClass}
+            >
+              {BLOCK_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {blockError && <p className="col-span-2 text-sm text-red-600">{blockError}</p>}
+          {blockMessage && <p className="col-span-2 text-sm text-green-700">{blockMessage}</p>}
+          <button
+            type="submit"
+            disabled={blockSubmitting || !blockForm.slotId}
+            className="col-span-2 rounded-md bg-gray-900 text-white py-2 font-medium hover:bg-gray-700 disabled:opacity-50"
+          >
+            {blockSubmitting ? "Blocking..." : "Block slot"}
+          </button>
+        </form>
+      </details>
 
       <details className="bg-white rounded-xl border border-gray-200 p-5">
         <summary className="text-sm font-semibold text-gray-900 cursor-pointer">
