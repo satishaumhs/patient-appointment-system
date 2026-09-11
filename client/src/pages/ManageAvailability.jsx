@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 import MonthCalendar from "../components/MonthCalendar";
 import StatCard from "../components/StatCard";
-import { CalendarIcon, CheckCircleIcon, ClockIcon, UsersIcon, LockIcon } from "../components/icons";
+import { CalendarIcon, CheckCircleIcon, ClockIcon, UsersIcon, LockIcon, BanIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -10,6 +10,23 @@ const inputClass =
 const GRID_START_HOUR = 9;
 const GRID_END_HOUR = 21;
 const SLOT_MINUTES = 30;
+
+const WEEKDAYS = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 0, label: "Sun" },
+];
+
+const BLOCK_REASONS = [
+  { value: "meeting", label: "Meeting" },
+  { value: "break", label: "Break" },
+  { value: "personal", label: "Personal" },
+  { value: "other", label: "Other" },
+];
 
 const DAY_GRID_TIMES = (() => {
   const times = [];
@@ -60,13 +77,25 @@ const formatDisplayTime = (timeStr) => {
 
 const todayKey = () => toDateKey(new Date());
 
+const BLOCK_REASON_LABEL = Object.fromEntries(BLOCK_REASONS.map((r) => [r.value, r.label]));
+
 const ManageAvailability = () => {
   const [slots, setSlots] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [error, setError] = useState("");
 
-  const [bulkForm, setBulkForm] = useState({ date: "", startTime: "09:00", endTime: "17:00", slotMinutes: 30 });
+  const [clickAction, setClickAction] = useState("remove");
+  const [blockReason, setBlockReason] = useState("meeting");
+
+  const [bulkForm, setBulkForm] = useState({
+    date: "",
+    startTime: "09:00",
+    endTime: "17:00",
+    slotMinutes: 30,
+    repeatUntil: "",
+  });
+  const [repeatOn, setRepeatOn] = useState(new Set([1, 2, 3, 4, 5]));
   const [bulkMessage, setBulkMessage] = useState("");
   const [bulkError, setBulkError] = useState("");
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
@@ -92,8 +121,15 @@ const ManageAvailability = () => {
     const existing = findSlotAt(selectedDate, timeStr);
     try {
       if (existing) {
-        if (existing.isBooked) return;
-        await api.delete(`/availability/${existing._id}`);
+        if (existing.blockedReason) {
+          await api.patch(`/availability/${existing._id}/unblock`);
+        } else if (existing.isBooked) {
+          return;
+        } else if (clickAction === "block") {
+          await api.patch(`/availability/${existing._id}/block`, { reason: blockReason });
+        } else {
+          await api.delete(`/availability/${existing._id}`);
+        }
       } else {
         await api.post("/availability", {
           date: selectedDate,
@@ -110,13 +146,32 @@ const ManageAvailability = () => {
 
   const handleBulkChange = (e) => setBulkForm({ ...bulkForm, [e.target.name]: e.target.value });
 
+  const toggleRepeatDay = (value) => {
+    setRepeatOn((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  };
+
   const handleBulkSubmit = async (e) => {
     e.preventDefault();
     setBulkError("");
     setBulkMessage("");
     setBulkSubmitting(true);
     try {
-      const res = await api.post("/availability", { ...bulkForm, slotMinutes: Number(bulkForm.slotMinutes) });
+      const payload = {
+        date: bulkForm.date,
+        startTime: bulkForm.startTime,
+        endTime: bulkForm.endTime,
+        slotMinutes: Number(bulkForm.slotMinutes),
+      };
+      if (bulkForm.repeatUntil) {
+        payload.repeatUntil = bulkForm.repeatUntil;
+        payload.repeatOn = [...repeatOn];
+      }
+      const res = await api.post("/availability", payload);
       setBulkMessage(res.data.message);
       loadAll();
     } catch (err) {
@@ -152,7 +207,7 @@ const ManageAvailability = () => {
     });
     return {
       total: inWeek.length,
-      booked: inWeek.filter((s) => s.isBooked).length,
+      booked: inWeek.filter((s) => s.isBooked && !s.blockedReason).length,
       open: inWeek.filter((s) => !s.isBooked).length,
     };
   }, [slots]);
@@ -208,7 +263,7 @@ const ManageAvailability = () => {
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Time slots</h2>
               <p className="text-xs text-gray-500">
@@ -219,7 +274,7 @@ const ManageAvailability = () => {
                 })}
               </p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-gray-500">
+            <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full border border-gray-300" /> Not offered
               </span>
@@ -229,7 +284,35 @@ const ManageAvailability = () => {
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-gray-300" /> Booked
               </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-400" /> Blocked
+              </span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2 mb-4 text-xs">
+            <span className="text-gray-500">Clicking an open slot will:</span>
+            <select
+              value={clickAction}
+              onChange={(e) => setClickAction(e.target.value)}
+              className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-600"
+            >
+              <option value="remove">Remove it</option>
+              <option value="block">Block it</option>
+            </select>
+            {clickAction === "block" && (
+              <select
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                className="rounded-md border border-gray-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-teal-600"
+              >
+                {BLOCK_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    Reason: {r.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
@@ -247,26 +330,43 @@ const ManageAvailability = () => {
                       {times.map((t) => {
                         const existing = findSlotAt(selectedDate, t);
                         const isPast = isPastTimeToday(selectedDate, t);
-                        const state = existing ? (existing.isBooked ? "booked" : "open") : isPast ? "past" : "empty";
+                        const state = existing
+                          ? existing.blockedReason
+                            ? "blocked"
+                            : existing.isBooked
+                              ? "booked"
+                              : "open"
+                          : isPast
+                            ? "past"
+                            : "empty";
                         return (
                           <button
                             key={t}
                             type="button"
                             disabled={state === "booked" || state === "past"}
                             onClick={() => toggleGridSlot(t)}
-                            title={state === "past" ? "This time has already passed" : undefined}
+                            title={
+                              state === "past"
+                                ? "This time has already passed"
+                                : state === "blocked"
+                                  ? `Blocked: ${BLOCK_REASON_LABEL[existing.blockedReason]} (click to unblock)`
+                                  : undefined
+                            }
                             className={`text-xs px-2 py-2 rounded-md flex items-center justify-center gap-1 ${
                               state === "booked"
                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                : state === "past"
-                                  ? "border border-gray-100 text-gray-300 cursor-not-allowed"
-                                  : state === "open"
-                                    ? "bg-teal-600 text-white hover:bg-teal-700"
-                                    : "border border-gray-300 text-gray-700 hover:border-teal-600"
+                                : state === "blocked"
+                                  ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                                  : state === "past"
+                                    ? "border border-gray-100 text-gray-300 cursor-not-allowed"
+                                    : state === "open"
+                                      ? "bg-teal-600 text-white hover:bg-teal-700"
+                                      : "border border-gray-300 text-gray-700 hover:border-teal-600"
                             }`}
                           >
                             {formatDisplayTime(t)}
                             {state === "booked" && <LockIcon className="w-3 h-3" />}
+                            {state === "blocked" && <BanIcon className="w-3 h-3" />}
                           </button>
                         );
                       })}
@@ -343,11 +443,52 @@ const ManageAvailability = () => {
               <option value={60}>60</option>
             </select>
           </div>
+
+          <div className="col-span-2 pt-2 border-t border-gray-100">
+            <label htmlFor="bulkRepeatUntil" className="block text-sm font-medium text-gray-700 mb-1">
+              Repeat until (optional)
+            </label>
+            <input
+              id="bulkRepeatUntil"
+              type="date"
+              name="repeatUntil"
+              value={bulkForm.repeatUntil}
+              onChange={handleBulkChange}
+              min={bulkForm.date}
+              className={inputClass}
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Leave blank to generate slots for just the one date above.
+            </p>
+          </div>
+
+          {bulkForm.repeatUntil && (
+            <div className="col-span-2">
+              <p className="block text-sm font-medium text-gray-700 mb-1.5">Repeat on</p>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAYS.map((day) => (
+                  <button
+                    key={day.value}
+                    type="button"
+                    onClick={() => toggleRepeatDay(day.value)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium border ${
+                      repeatOn.has(day.value)
+                        ? "bg-teal-600 text-white border-teal-600"
+                        : "border-gray-300 text-gray-600 hover:border-teal-600"
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {bulkError && <p className="col-span-2 text-sm text-red-600">{bulkError}</p>}
           {bulkMessage && <p className="col-span-2 text-sm text-green-700">{bulkMessage}</p>}
           <button
             type="submit"
-            disabled={bulkSubmitting}
+            disabled={bulkSubmitting || (bulkForm.repeatUntil && repeatOn.size === 0)}
             className="col-span-2 rounded-md bg-gray-900 text-white py-2 font-medium hover:bg-gray-700 disabled:opacity-50"
           >
             {bulkSubmitting ? "Generating..." : "Generate slots"}

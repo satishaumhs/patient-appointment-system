@@ -6,7 +6,7 @@ import StatCard from "../components/StatCard";
 import StatusDonut from "../components/StatusDonut";
 import WeekBarChart from "../components/WeekBarChart";
 import ReschedulePanel from "../components/ReschedulePanel";
-import { CalendarIcon, ClockIcon, CheckCircleIcon, UsersIcon, StethoscopeIcon } from "../components/icons";
+import { CalendarIcon, ClockIcon, CheckCircleIcon, UsersIcon, StethoscopeIcon, VideoIcon } from "../components/icons";
 
 const STATUS_STYLES = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -212,8 +212,29 @@ const Dashboard = () => {
                       {appt.patientInfo?.age} yrs • {appt.patientInfo?.gender} • {new Date(appt.date).toLocaleString()}
                       {appt.reason ? ` · ${appt.reason}` : ""}
                     </p>
+                    {appt.status === "confirmed" && appt.appointmentType === "video" && appt.videoLink && (
+                      <a
+                        href={appt.videoLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 hover:underline mt-1"
+                      >
+                        <VideoIcon className="w-3.5 h-3.5" />
+                        Join video call
+                      </a>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
+                    {appt.payment?.status === "paid" && (
+                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-green-100 text-green-700">
+                        Paid
+                      </span>
+                    )}
+                    {appt.payment?.status === "pending" && (
+                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                        Payment pending
+                      </span>
+                    )}
                     <span
                       className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[appt.status]}`}
                     >

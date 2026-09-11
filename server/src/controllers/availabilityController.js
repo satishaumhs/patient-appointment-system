@@ -18,31 +18,74 @@ const clinicDateTime = (dateStr, timeStr) => {
 const clinicDayStart = (dateStr) => clinicDateTime(dateStr, "00:00");
 const clinicDayEnd = (dateStr) => new Date(clinicDayStart(dateStr).getTime() + 24 * 60 * 60000 - 1);
 
+// Pure calendar-string arithmetic for stepping through a recurring range and
+// reading a date's weekday. Deliberately never goes through clinicDateTime or
+// any host-timezone-sensitive Date method (like the local .getDay()) -- that
+// was exactly the bug class that corrupted slot times before (see above).
+// Anchoring every calculation at noon UTC keeps it identical regardless of
+// which timezone the Node process itself happens to be running in.
+const addDaysToDateStr = (dateStr, days) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d, 12));
+  t.setUTCDate(t.getUTCDate() + days);
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+};
+
+const weekdayOfDateStr = (dateStr) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
+};
+
+const daysBetweenDateStrs = (fromStr, toStr) => {
+  const [y1, m1, d1] = fromStr.split("-").map(Number);
+  const [y2, m2, d2] = toStr.split("-").map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2, 12) - Date.UTC(y1, m1 - 1, d1, 12)) / 86400000);
+};
+
+const MAX_REPEAT_DAYS = 90;
+const DEFAULT_WEEKDAYS = [1, 2, 3, 4, 5]; // Mon-Fri
+
 const generateSlots = asyncHandler(async (req, res) => {
-  const { date, startTime, endTime, slotMinutes } = req.body;
+  const { date, startTime, endTime, slotMinutes, repeatUntil, repeatOn } = req.body;
 
-  const dayStart = clinicDateTime(date, startTime);
-  const dayEnd = clinicDateTime(date, endTime);
-
-  if (dayEnd <= dayStart) {
+  if (clinicDateTime(date, endTime) <= clinicDateTime(date, startTime)) {
     return res.status(400).json({ message: "endTime must be after startTime" });
   }
 
-  const slots = [];
-  let cursor = new Date(dayStart);
+  let dateStrs = [date];
 
-  while (cursor < dayEnd) {
-    const slotEnd = new Date(cursor.getTime() + slotMinutes * 60000);
-    if (slotEnd > dayEnd) break;
+  if (repeatUntil) {
+    const span = daysBetweenDateStrs(date, repeatUntil);
+    if (span < 0) {
+      return res.status(400).json({ message: "repeatUntil must be on or after date" });
+    }
+    if (span >= MAX_REPEAT_DAYS) {
+      return res.status(400).json({ message: `Recurring range can't exceed ${MAX_REPEAT_DAYS} days` });
+    }
 
-    slots.push({
-      doctor: req.user._id,
-      startTime: new Date(cursor),
-      endTime: slotEnd,
-    });
-
-    cursor = slotEnd;
+    const weekdays = new Set(repeatOn && repeatOn.length ? repeatOn : DEFAULT_WEEKDAYS);
+    dateStrs = [];
+    for (let i = 0; i <= span; i++) {
+      const dStr = addDaysToDateStr(date, i);
+      if (weekdays.has(weekdayOfDateStr(dStr))) dateStrs.push(dStr);
+    }
   }
+
+  const buildDaySlots = (dateStr) => {
+    const dayStart = clinicDateTime(dateStr, startTime);
+    const dayEnd = clinicDateTime(dateStr, endTime);
+    const daySlots = [];
+    let cursor = new Date(dayStart);
+    while (cursor < dayEnd) {
+      const slotEnd = new Date(cursor.getTime() + slotMinutes * 60000);
+      if (slotEnd > dayEnd) break;
+      daySlots.push({ doctor: req.user._id, startTime: new Date(cursor), endTime: slotEnd });
+      cursor = slotEnd;
+    }
+    return daySlots;
+  };
+
+  const slots = dateStrs.flatMap(buildDaySlots);
 
   if (slots.length === 0) {
     return res.status(400).json({ message: "No slots fit in that time range" });
@@ -60,8 +103,12 @@ const generateSlots = asyncHandler(async (req, res) => {
   }
 
   res.status(201).json({
-    message: `Created ${createdCount} of ${slots.length} slot(s) (duplicates skipped)`,
+    message:
+      dateStrs.length > 1
+        ? `Created ${createdCount} of ${slots.length} slot(s) across ${dateStrs.length} day(s) (duplicates skipped)`
+        : `Created ${createdCount} of ${slots.length} slot(s) (duplicates skipped)`,
     created: createdCount,
+    daysCovered: dateStrs.length,
   });
 });
 
@@ -117,4 +164,36 @@ const deleteSlot = asyncHandler(async (req, res) => {
   res.json({ message: "Slot removed" });
 });
 
-module.exports = { generateSlots, getAvailableSlots, getMySlots, deleteSlot };
+// A block is implemented as isBooked:true (so it's excluded from booking and
+// can't be double-claimed) plus blockedReason -- see models/Availability.js.
+const blockSlot = asyncHandler(async (req, res) => {
+  const { reason } = req.body;
+
+  const slot = await Availability.findOneAndUpdate(
+    { _id: req.params.id, doctor: req.user._id, isBooked: false },
+    { isBooked: true, blockedReason: reason },
+    { returnDocument: "after" }
+  );
+
+  if (!slot) {
+    return res.status(409).json({ message: "That slot can't be blocked (already booked, blocked, or not yours)" });
+  }
+
+  res.json(slot);
+});
+
+const unblockSlot = asyncHandler(async (req, res) => {
+  const slot = await Availability.findOneAndUpdate(
+    { _id: req.params.id, doctor: req.user._id, blockedReason: { $ne: null } },
+    { isBooked: false, blockedReason: null },
+    { returnDocument: "after" }
+  );
+
+  if (!slot) {
+    return res.status(404).json({ message: "No blocked slot found to unblock" });
+  }
+
+  res.json(slot);
+});
+
+module.exports = { generateSlots, getAvailableSlots, getMySlots, deleteSlot, blockSlot, unblockSlot };

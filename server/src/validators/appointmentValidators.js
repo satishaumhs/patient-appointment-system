@@ -34,9 +34,24 @@ const statusLookupValidator = [
   phoneValidator("phone"),
 ];
 
+const payValidator = [
+  param("referenceNumber").matches(/^MHS-\d{5}$/).withMessage("Invalid reference number"),
+  phoneValidator("phone"),
+  body("method").optional().isIn(["card", "upi"]).withMessage("Invalid payment method"),
+];
+
+const reviewValidator = [
+  param("referenceNumber").matches(/^MHS-\d{5}$/).withMessage("Invalid reference number"),
+  phoneValidator("phone"),
+  body("rating").isInt({ min: 1, max: 5 }).withMessage("Rating must be between 1 and 5"),
+  body("comment").optional({ checkFalsy: true }).trim().isLength({ max: 500 }).withMessage("Comment is too long"),
+];
+
 module.exports = {
   createAppointmentValidator,
   updateStatusValidator,
   rescheduleValidator,
   statusLookupValidator,
+  payValidator,
+  reviewValidator,
 };

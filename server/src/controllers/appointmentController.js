@@ -1,7 +1,12 @@
 const asyncHandler = require("../utils/asyncHandler");
 const Appointment = require("../models/Appointment");
 const Availability = require("../models/Availability");
+const Notification = require("../models/Notification");
+const Review = require("../models/Review");
+const User = require("../models/User");
 const generateReferenceNumber = require("../utils/generateReferenceNumber");
+const generateVideoLink = require("../utils/generateVideoLink");
+const notify = require("../utils/notify");
 
 const TERMINAL_STATUSES = ["completed", "cancelled", "rejected"];
 
@@ -25,6 +30,12 @@ const createAppointment = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Cannot book a slot in the past" });
   }
 
+  const doctorUser = await User.findById(slot.doctor).select("name email consultationFee");
+  const payment =
+    doctorUser?.consultationFee != null
+      ? { status: "pending", amount: doctorUser.consultationFee }
+      : { status: "not_required" };
+
   // Retries on the rare reference-number collision race (check-then-insert),
   // same duplicate-key idiom generateSlots already uses elsewhere.
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -38,7 +49,25 @@ const createAppointment = asyncHandler(async (req, res) => {
         appointmentType,
         patientInfo,
         referenceNumber,
+        payment,
       });
+
+      await notify({
+        appointment,
+        audience: "doctor",
+        doctor: slot.doctor,
+        event: "new_request",
+        title: "New appointment request",
+        message: `${patientInfo.name} requested an appointment on ${appointment.date.toLocaleString()}.`,
+      });
+      await notify({
+        appointment,
+        audience: "patient",
+        event: "request_received",
+        title: "Request received",
+        message: `We received your appointment request with Dr. ${doctorUser?.name || "your doctor"}. You'll be notified once it's confirmed.`,
+      });
+
       return res.status(201).json(appointment);
     } catch (error) {
       if (error.code === 11000 && error.keyPattern?.referenceNumber) {
@@ -105,6 +134,13 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "No appointment found for that reference number and phone number" });
   }
 
+  const [hasReview, timeline] = await Promise.all([
+    Review.exists({ appointment: appointment._id }),
+    Notification.find({ appointment: appointment._id, audience: "patient" })
+      .sort({ createdAt: 1 })
+      .select("event title message createdAt"),
+  ]);
+
   res.json({
     referenceNumber: appointment.referenceNumber,
     patientName: appointment.patientInfo.name,
@@ -112,27 +148,60 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
     date: appointment.date,
     appointmentType: appointment.appointmentType,
     status: appointment.status,
+    videoLink: appointment.status === "confirmed" ? appointment.videoLink : undefined,
+    payment: appointment.payment,
+    hasReview: Boolean(hasReview),
+    timeline,
   });
 });
 
 const updateAppointmentStatus = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id);
+  const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
 
   if (!appointment) {
     return res.status(404).json({ message: "Appointment not found" });
   }
 
-  const isOwnerDoctor = appointment.doctor.equals(req.user._id);
+  const isOwnerDoctor = appointment.doctor._id.equals(req.user._id);
 
   if (req.user.role === "doctor" && !isOwnerDoctor) {
     return res.status(403).json({ message: "Not authorized to update this appointment" });
   }
 
-  appointment.status = req.body.status;
+  const { status } = req.body;
+
+  if (status === "confirmed" && appointment.appointmentType === "video" && !appointment.videoLink) {
+    appointment.videoLink = generateVideoLink(appointment.referenceNumber);
+  }
+
+  appointment.status = status;
   await appointment.save();
 
-  if (["cancelled", "rejected"].includes(req.body.status)) {
+  if (["cancelled", "rejected"].includes(status)) {
     await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+  }
+
+  const PATIENT_NOTICES = {
+    confirmed: {
+      event: "confirmed",
+      title: "Appointment confirmed",
+      message: `Your appointment with Dr. ${appointment.doctor.name} on ${appointment.date.toLocaleString()} has been confirmed.`,
+    },
+    rejected: {
+      event: "rejected",
+      title: "Appointment declined",
+      message: `Your appointment request with Dr. ${appointment.doctor.name} couldn't be accommodated. Please book another time.`,
+    },
+    completed: {
+      event: "completed",
+      title: "Visit completed",
+      message: `Your visit with Dr. ${appointment.doctor.name} is complete. Thanks for choosing My Health School.`,
+    },
+  };
+
+  const notice = PATIENT_NOTICES[status];
+  if (notice) {
+    await notify({ appointment, audience: "patient", ...notice });
   }
 
   res.json(appointment);
@@ -141,12 +210,12 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
 const rescheduleAppointment = asyncHandler(async (req, res) => {
   const { newSlotId } = req.body;
 
-  const appointment = await Appointment.findById(req.params.id);
+  const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
   if (!appointment) {
     return res.status(404).json({ message: "Appointment not found" });
   }
 
-  const isOwnerDoctor = appointment.doctor.equals(req.user._id);
+  const isOwnerDoctor = appointment.doctor._id.equals(req.user._id);
   if (req.user.role === "doctor" && !isOwnerDoctor) {
     return res.status(403).json({ message: "Not authorized to reschedule this appointment" });
   }
@@ -162,7 +231,7 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
   // Same-doctor clause is load-bearing: without it a reschedule could move
   // this appointment onto a different doctor's open slot.
   const newSlot = await Availability.findOneAndUpdate(
-    { _id: newSlotId, isBooked: false, doctor: appointment.doctor },
+    { _id: newSlotId, isBooked: false, doctor: appointment.doctor._id },
     { isBooked: true },
     { returnDocument: "after" }
   );
@@ -183,6 +252,9 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
     appointment.slot = newSlot._id;
     appointment.date = newSlot.startTime;
     appointment.status = "confirmed";
+    if (appointment.appointmentType === "video" && !appointment.videoLink) {
+      appointment.videoLink = generateVideoLink(appointment.referenceNumber);
+    }
     await appointment.save();
   } catch (error) {
     newSlot.isBooked = false;
@@ -192,7 +264,121 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
 
   await Availability.findByIdAndUpdate(oldSlotId, { isBooked: false });
 
+  await notify({
+    appointment,
+    audience: "patient",
+    event: "rescheduled",
+    title: "Appointment rescheduled",
+    message: `Your appointment with Dr. ${appointment.doctor.name} has been rescheduled to ${appointment.date.toLocaleString()}.`,
+  });
+
   res.json(appointment);
+});
+
+// Public: same reference+phone gate as getAppointmentByReference.
+const cancelAppointmentByReference = asyncHandler(async (req, res) => {
+  const { referenceNumber } = req.params;
+  const { phone } = req.body;
+
+  const appointment = await Appointment.findOne({ referenceNumber }).populate("doctor", "name");
+
+  if (!appointment || appointment.patientInfo.phone !== phone) {
+    return res.status(404).json({ message: "No appointment found for that reference number and phone number" });
+  }
+
+  if (TERMINAL_STATUSES.includes(appointment.status)) {
+    return res
+      .status(400)
+      .json({ message: `This appointment is already ${appointment.status} and can't be cancelled` });
+  }
+
+  appointment.status = "cancelled";
+  await appointment.save();
+  await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+
+  await notify({
+    appointment,
+    audience: "doctor",
+    doctor: appointment.doctor._id,
+    event: "cancelled_by_patient",
+    title: "Appointment cancelled",
+    message: `${appointment.patientInfo.name} cancelled their appointment on ${appointment.date.toLocaleString()}.`,
+  });
+
+  res.json({ referenceNumber: appointment.referenceNumber, status: appointment.status });
+});
+
+// Public: same reference+phone gate. Demo only -- no real payment gateway.
+const payAppointmentByReference = asyncHandler(async (req, res) => {
+  const { referenceNumber } = req.params;
+  const { phone, method } = req.body;
+
+  const appointment = await Appointment.findOne({ referenceNumber });
+
+  if (!appointment || appointment.patientInfo.phone !== phone) {
+    return res.status(404).json({ message: "No appointment found for that reference number and phone number" });
+  }
+
+  if (appointment.payment.status === "not_required") {
+    return res.status(400).json({ message: "No payment is required for this appointment" });
+  }
+
+  if (appointment.payment.status === "paid") {
+    return res.status(400).json({ message: "This appointment has already been paid for" });
+  }
+
+  if (["cancelled", "rejected"].includes(appointment.status)) {
+    return res.status(400).json({ message: "This appointment is no longer active" });
+  }
+
+  appointment.payment.status = "paid";
+  appointment.payment.method = method;
+  appointment.payment.paidAt = new Date();
+  appointment.payment.transactionId = `DEMO-${Date.now().toString(36).toUpperCase()}`;
+  await appointment.save();
+
+  await notify({
+    appointment,
+    audience: "doctor",
+    doctor: appointment.doctor,
+    event: "payment_received",
+    title: "Payment received (demo)",
+    message: `${appointment.patientInfo.name} paid ₹${appointment.payment.amount} (demo) for their appointment.`,
+  });
+
+  res.json({ referenceNumber: appointment.referenceNumber, payment: appointment.payment });
+});
+
+// Public: same reference+phone gate, only for a visit that actually happened.
+const submitReview = asyncHandler(async (req, res) => {
+  const { referenceNumber } = req.params;
+  const { phone, rating, comment } = req.body;
+
+  const appointment = await Appointment.findOne({ referenceNumber });
+
+  if (!appointment || appointment.patientInfo.phone !== phone) {
+    return res.status(404).json({ message: "No appointment found for that reference number and phone number" });
+  }
+
+  if (appointment.status !== "completed") {
+    return res.status(400).json({ message: "Only completed appointments can be reviewed" });
+  }
+
+  try {
+    const review = await Review.create({
+      appointment: appointment._id,
+      doctor: appointment.doctor,
+      patientName: appointment.patientInfo.name,
+      rating,
+      comment,
+    });
+    res.status(201).json(review);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "This appointment has already been reviewed" });
+    }
+    throw error;
+  }
 });
 
 const deleteAppointment = asyncHandler(async (req, res) => {
@@ -215,5 +401,8 @@ module.exports = {
   getAppointmentByReference,
   updateAppointmentStatus,
   rescheduleAppointment,
+  cancelAppointmentByReference,
+  payAppointmentByReference,
+  submitReview,
   deleteAppointment,
 };

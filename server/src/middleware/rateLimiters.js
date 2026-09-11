@@ -12,6 +12,12 @@ const makeLimiter = () =>
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: "Too many attempts, please try again later" },
+    // The limiter's hit counter is in-memory and lives for the process
+    // lifetime, not per-test -- without this, tests share one counter (every
+    // test file runs in the same `--runInBand` process) and start failing
+    // once enough of them together exceed `max`, regardless of what any
+    // individual test does. Doesn't affect real request handling.
+    skip: () => process.env.NODE_ENV === "test",
   });
 
 const authLimiter = makeLimiter();

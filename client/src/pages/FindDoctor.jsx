@@ -5,11 +5,18 @@ import DoctorCard from "../components/DoctorCard";
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
 
+const SORT_OPTIONS = [
+  { value: "next-available", label: "Sort: Soonest available" },
+  { value: "rating", label: "Sort: Highest rated" },
+  { value: "name", label: "Sort: Name (A-Z)" },
+];
+
 const FindDoctor = () => {
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [specialization, setSpecialization] = useState("");
+  const [sortBy, setSortBy] = useState("next-available");
 
   useEffect(() => {
     api.get("/users/doctors").then((res) => {
@@ -25,7 +32,7 @@ const FindDoctor = () => {
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return doctors.filter((d) => {
+    const matches = doctors.filter((d) => {
       const matchesSearch =
         !term ||
         d.name.toLowerCase().includes(term) ||
@@ -34,7 +41,22 @@ const FindDoctor = () => {
       const matchesSpecialization = !specialization || d.specialization === specialization;
       return matchesSearch && matchesSpecialization;
     });
-  }, [doctors, search, specialization]);
+
+    const sorted = [...matches];
+    if (sortBy === "next-available") {
+      sorted.sort((a, b) => {
+        if (!a.nextAvailable && !b.nextAvailable) return a.name.localeCompare(b.name);
+        if (!a.nextAvailable) return 1;
+        if (!b.nextAvailable) return -1;
+        return new Date(a.nextAvailable) - new Date(b.nextAvailable);
+      });
+    } else if (sortBy === "rating") {
+      sorted.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0) || a.name.localeCompare(b.name));
+    } else {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return sorted;
+  }, [doctors, search, specialization, sortBy]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -58,6 +80,13 @@ const FindDoctor = () => {
           {specializations.map((s) => (
             <option key={s} value={s}>
               {s}
+            </option>
+          ))}
+        </select>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className={`${inputClass} sm:max-w-xs`}>
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>

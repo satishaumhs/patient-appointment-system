@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import MonthCalendar from "../components/MonthCalendar";
+import DemoPaymentForm from "../components/DemoPaymentForm";
 import {
   StethoscopeIcon,
   ClockIcon,
@@ -224,6 +225,18 @@ const BookAppointment = () => {
               Status: Pending doctor confirmation
             </p>
           </div>
+
+          {bookingResult.payment && bookingResult.payment.status !== "not_required" && (
+            <div className="text-left mb-6 pt-5 border-t border-gray-100">
+              <DemoPaymentForm
+                payment={bookingResult.payment}
+                appointmentStatus={bookingResult.status}
+                referenceNumber={bookingResult.referenceNumber}
+                phone={patientForm.phone.trim()}
+                onPaid={(payment) => setBookingResult({ ...bookingResult, payment })}
+              />
+            </div>
+          )}
 
           <p className="text-xs text-gray-400 mb-4">
             Save this reference number — you'll need it, along with your phone number, to check your appointment

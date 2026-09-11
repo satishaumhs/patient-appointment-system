@@ -171,3 +171,38 @@ export const TicketIcon = (props) => (
     <line x1="10" y1="6" x2="10" y2="18" strokeDasharray="2 2" />
   </svg>
 );
+
+export const StarIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M12 3.5l2.6 5.4 5.9.7-4.3 4.1 1.1 5.9L12 16.7l-5.3 2.9 1.1-5.9-4.3-4.1 5.9-.7z" />
+  </svg>
+);
+
+export const BellIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M5 17h14l-1.6-2.4A6 6 0 0 1 16.4 11V9.5a4.4 4.4 0 1 0-8.8 0V11a6 6 0 0 1-1 3.6z" />
+    <path d="M10 20a2 2 0 0 0 4 0" />
+  </svg>
+);
+
+export const VideoIcon = (props) => (
+  <svg {...base} {...props}>
+    <rect x="2.5" y="6" width="13" height="12" rx="2" />
+    <path d="M15.5 10.5l6-3.5v10l-6-3.5z" />
+  </svg>
+);
+
+export const BanIcon = (props) => (
+  <svg {...base} {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" />
+  </svg>
+);
+
+export const CreditCardIcon = (props) => (
+  <svg {...base} {...props}>
+    <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+    <line x1="2.5" y1="10" x2="21.5" y2="10" />
+    <line x1="6" y1="14.5" x2="10" y2="14.5" />
+  </svg>
+);

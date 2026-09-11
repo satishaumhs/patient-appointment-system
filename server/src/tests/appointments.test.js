@@ -169,4 +169,103 @@ describe("Appointments", () => {
     expect(wrongPhone.status).toBe(unknownRef.status);
     expect(wrongPhone.body).toEqual(unknownRef.body);
   });
+
+  it("lets a patient cancel their own pending request by reference + phone, and blocks a second cancel", async () => {
+    const doctor = await registerDoctor({ email: "docc@example.com" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-21", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-21");
+    const slotId = slots.body[0]._id;
+    const created = await bookAppointment(slotId, { patientInfo: samplePatientInfo({ phone: "9111111111" }) });
+    const { referenceNumber } = created.body;
+
+    const cancel = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/cancel`)
+      .send({ phone: "9111111111" });
+    expect(cancel.status).toBe(200);
+    expect(cancel.body.status).toBe("cancelled");
+
+    const slotsAfter = await getSlots(doctor.userId, "2027-01-21");
+    expect(slotsAfter.body.map((s) => s._id)).toContain(slotId);
+
+    const secondCancel = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/cancel`)
+      .send({ phone: "9111111111" });
+    expect(secondCancel.status).toBe(400);
+  });
+
+  it("runs the demo payment flow for a fee-charging doctor and blocks paying twice", async () => {
+    const doctor = await registerDoctor({ email: "docp@example.com", consultationFee: 500 });
+
+    await genSlots(doctor.cookie, { date: "2027-01-22", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-22");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9222222222" }),
+    });
+    expect(created.body.payment).toEqual({ status: "pending", amount: 500 });
+    const { referenceNumber } = created.body;
+
+    const pay = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/pay`)
+      .send({ phone: "9222222222", method: "upi" });
+    expect(pay.status).toBe(200);
+    expect(pay.body.payment.status).toBe("paid");
+    expect(pay.body.payment.amount).toBe(500);
+
+    const payAgain = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/pay`)
+      .send({ phone: "9222222222", method: "upi" });
+    expect(payAgain.status).toBe(400);
+  });
+
+  it("only allows a review after the visit is completed, and rejects a duplicate", async () => {
+    const doctor = await registerDoctor({ email: "docv@example.com" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-23", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-23");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9333333333" }),
+    });
+    const { referenceNumber } = created.body;
+
+    const tooEarly = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/review`)
+      .send({ phone: "9333333333", rating: 5, comment: "Great visit" });
+    expect(tooEarly.status).toBe(400);
+
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "completed" });
+
+    const review = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/review`)
+      .send({ phone: "9333333333", rating: 5, comment: "Great visit" });
+    expect(review.status).toBe(201);
+    expect(review.body.patientName).toBe("Pat Test");
+
+    const duplicate = await request(app)
+      .post(`/api/appointments/status/${referenceNumber}/review`)
+      .send({ phone: "9333333333", rating: 4 });
+    expect(duplicate.status).toBe(400);
+  });
+
+  it("generates a video link only once a video appointment is confirmed", async () => {
+    const doctor = await registerDoctor({ email: "docvid@example.com", consultationType: "video" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-24", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-24");
+    const created = await bookAppointment(slots.body[0]._id, { appointmentType: "video" });
+    expect(created.body.videoLink).toBeUndefined();
+
+    const confirm = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    expect(confirm.body.videoLink).toMatch(/^https:\/\/meet\.jit\.si\/MHS-\d{5}-/);
+  });
 });

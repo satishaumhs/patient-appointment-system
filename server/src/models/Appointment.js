@@ -58,6 +58,28 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+
+    // Set once, at confirm time, for video-type appointments only -- see
+    // utils/generateVideoLink.js.
+    videoLink: {
+      type: String,
+      trim: true,
+    },
+
+    // Demo payment only -- no real payment gateway is integrated. "amount" is
+    // snapshotted from the doctor's consultationFee at booking time so it
+    // stays correct even if the doctor's fee changes later.
+    payment: {
+      status: {
+        type: String,
+        enum: ["not_required", "pending", "paid"],
+        default: "not_required",
+      },
+      amount: { type: Number, min: 0 },
+      method: { type: String, enum: ["card", "upi"] },
+      paidAt: Date,
+      transactionId: { type: String, trim: true },
+    },
   },
   {
     timestamps: true,

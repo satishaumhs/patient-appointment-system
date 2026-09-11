@@ -6,6 +6,9 @@ const {
   getAppointmentByReference,
   updateAppointmentStatus,
   rescheduleAppointment,
+  cancelAppointmentByReference,
+  payAppointmentByReference,
+  submitReview,
   deleteAppointment,
 } = require("../controllers/appointmentController");
 const { protect, authorize } = require("../middleware/authMiddleware");
@@ -16,6 +19,8 @@ const {
   updateStatusValidator,
   rescheduleValidator,
   statusLookupValidator,
+  payValidator,
+  reviewValidator,
 } = require("../validators/appointmentValidators");
 
 const router = express.Router();
@@ -29,6 +34,27 @@ router.post(
   statusLookupValidator,
   validateRequest,
   getAppointmentByReference
+);
+router.post(
+  "/status/:referenceNumber/cancel",
+  publicAppointmentLimiter,
+  statusLookupValidator,
+  validateRequest,
+  cancelAppointmentByReference
+);
+router.post(
+  "/status/:referenceNumber/pay",
+  publicAppointmentLimiter,
+  payValidator,
+  validateRequest,
+  payAppointmentByReference
+);
+router.post(
+  "/status/:referenceNumber/review",
+  publicAppointmentLimiter,
+  reviewValidator,
+  validateRequest,
+  submitReview
 );
 
 router.get("/", protect, getAppointments);

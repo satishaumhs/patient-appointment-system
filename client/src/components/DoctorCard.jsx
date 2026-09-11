@@ -1,10 +1,22 @@
 import { Link } from "react-router-dom";
-import { StethoscopeIcon } from "./icons";
+import { StethoscopeIcon, StarIcon, ClockIcon } from "./icons";
 
 const CONSULTATION_LABELS = {
   "in-person": "In-person",
   video: "Video consultation",
   both: "In-person & video",
+};
+
+const formatNextAvailable = (iso) => {
+  const date = new Date(iso);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const time = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (date.toDateString() === now.toDateString()) return `Today, ${time}`;
+  if (date.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
+  return `${date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`;
 };
 
 const DoctorCard = ({ doctor }) => (
@@ -16,12 +28,22 @@ const DoctorCard = ({ doctor }) => (
       <div className="min-w-0">
         <h3 className="font-semibold text-gray-900 truncate">{doctor.name}</h3>
         <p className="text-sm text-teal-700">{doctor.specialization || "General Practice"}</p>
+        {doctor.reviewCount > 0 && (
+          <p className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+            <StarIcon className="w-3.5 h-3.5 text-amber-400" fill="currentColor" />
+            {doctor.averageRating} <span className="text-gray-400">({doctor.reviewCount})</span>
+          </p>
+        )}
       </div>
     </div>
 
     {doctor.location && <p className="text-sm text-gray-500 mb-1">📍 {doctor.location}</p>}
-    <p className="text-xs text-gray-400 mb-4">
+    <p className="text-xs text-gray-400 mb-2">
       {CONSULTATION_LABELS[doctor.consultationType] || CONSULTATION_LABELS["in-person"]}
+    </p>
+    <p className={`text-xs flex items-center gap-1.5 mb-4 ${doctor.nextAvailable ? "text-teal-700" : "text-gray-400"}`}>
+      <ClockIcon className="w-3.5 h-3.5" />
+      {doctor.nextAvailable ? `Next available: ${formatNextAvailable(doctor.nextAvailable)}` : "Fully booked"}
     </p>
 
     <Link

@@ -4,10 +4,12 @@ const {
   getAvailableSlots,
   getMySlots,
   deleteSlot,
+  blockSlot,
+  unblockSlot,
 } = require("../controllers/availabilityController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 const validateRequest = require("../middleware/validateRequest");
-const { generateSlotsValidator } = require("../validators/availabilityValidators");
+const { generateSlotsValidator, blockSlotValidator } = require("../validators/availabilityValidators");
 
 const router = express.Router();
 
@@ -23,5 +25,7 @@ router.get("/mine", protect, authorize("doctor"), getMySlots);
 router.get("/:doctorId", getAvailableSlots);
 
 router.delete("/:id", protect, authorize("doctor"), deleteSlot);
+router.patch("/:id/block", protect, authorize("doctor"), blockSlotValidator, validateRequest, blockSlot);
+router.patch("/:id/unblock", protect, authorize("doctor"), unblockSlot);
 
 module.exports = router;

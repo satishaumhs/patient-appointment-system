@@ -16,6 +16,7 @@ const User = require("../src/models/User");
 const Availability = require("../src/models/Availability");
 const Appointment = require("../src/models/Appointment");
 const generateReferenceNumber = require("../src/utils/generateReferenceNumber");
+const notify = require("../src/utils/notify");
 
 const DOCTORS = [
   {
@@ -258,7 +259,16 @@ const run = async () => {
     slot.isBooked = true;
     await slot.save();
 
-    await Appointment.create({
+    // Same derivation the real booking flow uses (createAppointment) -- not
+    // fabricated, just the correct demo-payment state for a fee-charging
+    // doctor. Never marked "paid": that status should only ever come from
+    // someone actually exercising the demo pay flow.
+    const payment =
+      booking.doctor.consultationFee != null
+        ? { status: "pending", amount: booking.doctor.consultationFee }
+        : { status: "not_required" };
+
+    const appointment = await Appointment.create({
       patientInfo: booking.patientInfo,
       doctor: booking.doctor._id,
       slot: slot._id,
@@ -267,6 +277,18 @@ const run = async () => {
       appointmentType: "in-person",
       referenceNumber: await generateReferenceNumber(),
       status: booking.status,
+      payment,
+    });
+
+    // Gives the doctor's new notification bell real demo content, tied 1:1
+    // to a real seeded appointment (not disconnected fake data).
+    await notify({
+      appointment,
+      audience: "doctor",
+      doctor: booking.doctor._id,
+      event: "new_request",
+      title: "New appointment request",
+      message: `${booking.patientInfo.name} requested an appointment on ${appointment.date.toLocaleString()}.`,
     });
 
     // A cancelled/rejected appointment frees its slot back up, same as the

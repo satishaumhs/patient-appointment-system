@@ -1,9 +1,12 @@
 import { useState } from "react";
 import api from "../api/axios";
-import { TicketIcon, PhoneIcon, CalendarIcon, ClockIcon } from "../components/icons";
+import DemoPaymentForm from "../components/DemoPaymentForm";
+import { TicketIcon, PhoneIcon, CalendarIcon, ClockIcon, VideoIcon, StarIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
+const plainInputClass =
+  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 const STATUS_STYLES = {
   pending: "bg-amber-100 text-amber-800",
@@ -13,7 +16,26 @@ const STATUS_STYLES = {
   completed: "bg-gray-100 text-gray-700",
 };
 
+const CANCELLABLE_STATUSES = ["pending", "confirmed"];
+
 const formatTime = (d) => new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const formatWhen = (d) => new Date(d).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+
+const StarPicker = ({ value, onChange }) => (
+  <div className="flex gap-1">
+    {[1, 2, 3, 4, 5].map((n) => (
+      <button
+        key={n}
+        type="button"
+        onClick={() => onChange(n)}
+        aria-label={`${n} star${n === 1 ? "" : "s"}`}
+        className={n <= value ? "text-amber-400" : "text-gray-300"}
+      >
+        <StarIcon className="w-6 h-6" fill={n <= value ? "currentColor" : "none"} />
+      </button>
+    ))}
+  </div>
+);
 
 const AppointmentStatus = () => {
   const [referenceNumber, setReferenceNumber] = useState("");
@@ -21,6 +43,16 @@ const AppointmentStatus = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [cancelConfirming, setCancelConfirming] = useState(false);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const [reviewDone, setReviewDone] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,10 +64,44 @@ const AppointmentStatus = () => {
         phone: phone.trim(),
       });
       setResult(res.data);
+      setReviewDone(false);
+      setCancelConfirming(false);
     } catch (err) {
       setError(err.response?.data?.message || "No appointment found for that reference number and phone number");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    setCancelError("");
+    setCancelSubmitting(true);
+    try {
+      const res = await api.post(`/appointments/status/${result.referenceNumber}/cancel`, { phone: phone.trim() });
+      setResult({ ...result, status: res.data.status });
+      setCancelConfirming(false);
+    } catch (err) {
+      setCancelError(err.response?.data?.message || "Could not cancel this appointment");
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    setReviewError("");
+    setReviewSubmitting(true);
+    try {
+      await api.post(`/appointments/status/${result.referenceNumber}/review`, {
+        phone: phone.trim(),
+        rating: reviewRating,
+        comment: reviewComment.trim() || undefined,
+      });
+      setReviewDone(true);
+    } catch (err) {
+      setReviewError(err.response?.data?.message || "Could not submit your review");
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -111,11 +177,114 @@ const AppointmentStatus = () => {
             </p>
           </div>
 
-          <span
-            className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_STYLES[result.status]}`}
-          >
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_STYLES[result.status]}`}>
             {result.status}
           </span>
+
+          {result.videoLink && (
+            <a
+              href={result.videoLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 flex items-center justify-center gap-2 rounded-md bg-blue-600 text-white py-2.5 text-sm font-medium hover:bg-blue-700"
+            >
+              <VideoIcon className="w-4 h-4" />
+              Join video consultation
+            </a>
+          )}
+
+          {result.payment && result.payment.status !== "not_required" && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <DemoPaymentForm
+                payment={result.payment}
+                appointmentStatus={result.status}
+                referenceNumber={result.referenceNumber}
+                phone={phone.trim()}
+                onPaid={(payment) => setResult({ ...result, payment })}
+              />
+            </div>
+          )}
+
+          {CANCELLABLE_STATUSES.includes(result.status) && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              {!cancelConfirming ? (
+                <button
+                  type="button"
+                  onClick={() => setCancelConfirming(true)}
+                  className="text-sm font-medium text-red-600 hover:underline"
+                >
+                  Cancel this appointment
+                </button>
+              ) : (
+                <div className="bg-red-50 rounded-lg p-3">
+                  <p className="text-sm text-red-800 mb-2">Are you sure you want to cancel this appointment?</p>
+                  {cancelError && <p className="text-xs text-red-600 mb-2">{cancelError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCancelConfirming(false)}
+                      className="rounded-md border border-gray-300 bg-white text-gray-700 px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
+                    >
+                      Never mind
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      disabled={cancelSubmitting}
+                      className="rounded-md bg-red-600 text-white px-3 py-1.5 text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {cancelSubmitting ? "Cancelling..." : "Yes, cancel it"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {result.status === "completed" && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              {result.hasReview || reviewDone ? (
+                <p className="text-sm text-gray-500">Thanks for rating your visit!</p>
+              ) : (
+                <form onSubmit={handleReviewSubmit} className="space-y-2">
+                  <p className="text-sm font-medium text-gray-900">Rate your visit</p>
+                  <StarPicker value={reviewRating} onChange={setReviewRating} />
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Share your experience (optional)"
+                    rows={2}
+                    className={plainInputClass}
+                  />
+                  {reviewError && <p className="text-xs text-red-600">{reviewError}</p>}
+                  <button
+                    type="submit"
+                    disabled={reviewSubmitting || reviewRating === 0}
+                    className="rounded-md bg-teal-600 text-white px-4 py-2 text-sm font-medium hover:bg-teal-700 disabled:opacity-40"
+                  >
+                    {reviewSubmitting ? "Submitting..." : "Submit review"}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {result.timeline?.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <p className="text-sm font-medium text-gray-900 mb-2">Updates</p>
+              <div className="space-y-2.5">
+                {result.timeline.map((entry, i) => (
+                  <div key={i} className="flex gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1.5 shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-gray-800">{entry.title}</p>
+                      <p className="text-xs text-gray-400">{formatWhen(entry.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

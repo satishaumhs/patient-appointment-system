@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const userRoutes = require("./routes/userRoutes");
 const availabilityRoutes = require("./routes/availabilityRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const { authLimiter } = require("./middleware/rateLimiters");
 
@@ -26,6 +27,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/appointments", appointmentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/availability", availabilityRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.get("/", (req, res) => {
   res.send("Patient Appointment Management API is running");
