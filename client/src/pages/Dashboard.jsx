@@ -96,7 +96,10 @@ const Dashboard = () => {
   }, [appointments]);
 
   const uniquePatients = useMemo(() => {
-    return new Set(appointments.map((a) => a.patientInfo?.phone).filter(Boolean)).size;
+    // "Seen" means an actual completed visit -- pending/confirmed haven't
+    // happened yet, and rejected never happened at all.
+    const phones = appointments.filter((a) => a.status === "completed").map((a) => a.patientInfo?.phone);
+    return new Set(phones.filter(Boolean)).size;
   }, [appointments]);
 
   const filteredAppointments = useMemo(
