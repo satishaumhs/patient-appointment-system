@@ -31,6 +31,11 @@ const isValidExpiry = (value) => {
 
 const UPI_ID_PATTERN = /^[\w.-]+@[\w.-]+$/;
 
+// UPI IDs are alphanumeric plus a small set of separators (._-) and the
+// required @ -- anything else (spaces, emoji, other punctuation) gets
+// dropped as you type, same as the digit-only filtering on the other fields.
+const formatUpiId = (value) => value.replace(/[^\w.@-]/g, "").slice(0, 20);
+
 const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, onPaid }) => {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState("card");
@@ -158,7 +163,8 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                 <input
                   placeholder="yourname@upi"
                   value={upiId}
-                  onChange={(e) => setUpiId(e.target.value)}
+                  onChange={(e) => setUpiId(formatUpiId(e.target.value))}
+                  maxLength={20}
                   required
                   className={plainInputClass}
                 />
