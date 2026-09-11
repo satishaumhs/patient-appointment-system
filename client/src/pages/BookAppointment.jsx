@@ -139,9 +139,11 @@ const BookAppointment = () => {
 
   const handlePatientFormChange = (e) => setPatientForm({ ...patientForm, [e.target.name]: e.target.value });
   const handlePatientFieldBlur = (e) => setTouched({ ...touched, [e.target.name]: true });
+  const handlePhoneChange = (e) =>
+    setPatientForm({ ...patientForm, phone: e.target.value.replace(/\D/g, "").slice(0, 10) });
 
-  const phoneDigits = patientForm.phone.replace(/\D/g, "");
-  const phoneValid = phoneDigits.length >= 7 && phoneDigits.length <= 15;
+  const phoneDigits = patientForm.phone;
+  const phoneValid = phoneDigits.length === 10;
   const ageValid = patientForm.age !== "" && Number(patientForm.age) >= 0 && Number(patientForm.age) <= 120;
 
   const patientDetailsValid =
@@ -350,16 +352,18 @@ const BookAppointment = () => {
                 <input
                   id="phone"
                   type="tel"
+                  inputMode="numeric"
                   name="phone"
                   value={patientForm.phone}
-                  onChange={handlePatientFormChange}
+                  onChange={handlePhoneChange}
                   onBlur={handlePatientFieldBlur}
+                  maxLength={10}
                   required
                   className={iconInputClass}
                 />
               </div>
-              {touched.phone && patientForm.phone.trim() && !phoneValid && (
-                <p className="text-xs text-red-600 mt-1">Enter a valid phone number (7–15 digits)</p>
+              {touched.phone && patientForm.phone && !phoneValid && (
+                <p className="text-xs text-red-600 mt-1">Enter a valid 10-digit mobile number</p>
               )}
             </div>
             <div>

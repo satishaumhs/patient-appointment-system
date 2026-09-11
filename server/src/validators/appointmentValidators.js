@@ -6,8 +6,8 @@ const phoneValidator = (field) =>
     .notEmpty()
     .withMessage("Phone number is required")
     .customSanitizer((value) => value.replace(/\D/g, ""))
-    .isLength({ min: 7, max: 15 })
-    .withMessage("Enter a valid phone number");
+    .isLength({ min: 10, max: 10 })
+    .withMessage("Enter a valid 10-digit mobile number");
 
 const createAppointmentValidator = [
   body("slotId").isMongoId().withMessage("A valid slot id is required"),
