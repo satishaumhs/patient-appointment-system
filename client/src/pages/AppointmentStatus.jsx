@@ -227,7 +227,7 @@ const AppointmentStatus = () => {
                       onClick={() => setCancelConfirming(false)}
                       className="rounded-md border border-gray-300 bg-white text-gray-700 px-3 py-1.5 text-xs font-medium hover:bg-gray-50"
                     >
-                      Never mind
+                      No
                     </button>
                     <button
                       type="button"
