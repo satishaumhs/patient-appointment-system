@@ -9,9 +9,26 @@ const plainInputClass =
 // never sent anywhere; the backend only needs to know a method was chosen.
 const INACTIVE_STATUSES = ["cancelled", "rejected"];
 
+const formatCardNumber = (value) =>
+  value
+    .replace(/\D/g, "")
+    .slice(0, 16)
+    .replace(/(\d{4})(?=\d)/g, "$1 ");
+
+const formatExpiry = (value) => {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+};
+
+const formatCvv = (value) => value.replace(/\D/g, "").slice(0, 3);
+
 const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, onPaid }) => {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState("card");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [upiId, setUpiId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -89,14 +106,36 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     placeholder="4242 4242 4242 4242"
+                    inputMode="numeric"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                     maxLength={19}
                     className={`col-span-2 ${plainInputClass}`}
                   />
-                  <input placeholder="MM/YY" maxLength={5} className={plainInputClass} />
-                  <input placeholder="CVV" maxLength={3} className={plainInputClass} />
+                  <input
+                    placeholder="MM/YY"
+                    inputMode="numeric"
+                    value={expiry}
+                    onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                    maxLength={5}
+                    className={plainInputClass}
+                  />
+                  <input
+                    placeholder="CVV"
+                    inputMode="numeric"
+                    value={cvv}
+                    onChange={(e) => setCvv(formatCvv(e.target.value))}
+                    maxLength={3}
+                    className={plainInputClass}
+                  />
                 </div>
               ) : (
-                <input placeholder="yourname@upi" className={plainInputClass} />
+                <input
+                  placeholder="yourname@upi"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  className={plainInputClass}
+                />
               )}
               {error && <p className="text-xs text-red-600">{error}</p>}
               <div className="flex gap-2">
