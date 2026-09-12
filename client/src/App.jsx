@@ -5,7 +5,10 @@ import PublicLayout from "./components/PublicLayout";
 import AppLayout from "./components/AppLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
+import MyProfile from "./pages/MyProfile";
 import BookAppointment from "./pages/BookAppointment";
 import AppointmentStatus from "./pages/AppointmentStatus";
 import ManageAvailability from "./pages/ManageAvailability";
@@ -24,6 +27,8 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route path="/doctors" element={<FindDoctor />} />
             <Route path="/doctors/:id" element={<DoctorProfile />} />
             <Route path="/book" element={<BookAppointment />} />
@@ -44,6 +49,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["doctor"]}>
                   <ManageAvailability />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute allowedRoles={["doctor"]}>
+                  <MyProfile />
                 </ProtectedRoute>
               }
             />

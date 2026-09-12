@@ -69,7 +69,12 @@ const Login = () => {
             </div>
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+              <Link to="/forgot-password" className="text-xs font-medium text-teal-700 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <div className="relative">
               <LockIcon className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input

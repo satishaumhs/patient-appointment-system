@@ -1,12 +1,13 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
-import { GridIcon, ClockIcon, UsersIcon, LogoutIcon, XIcon, BarChartIcon } from "./icons";
+import { GridIcon, ClockIcon, UsersIcon, LogoutIcon, XIcon, BarChartIcon, UserIcon } from "./icons";
 
 const NAV_ITEMS = {
   doctor: [
     { to: "/dashboard", label: "Dashboard", icon: GridIcon },
     { to: "/availability", label: "Manage Availability", icon: ClockIcon },
+    { to: "/profile", label: "My Profile", icon: UserIcon },
   ],
   admin: [
     { to: "/dashboard", label: "Dashboard", icon: GridIcon },

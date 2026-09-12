@@ -48,3 +48,33 @@ describe("Doctor directory", () => {
     expect(notADoctor.status).toBe(404);
   });
 });
+
+describe("Doctor self-service profile edit", () => {
+  it("lets a doctor update their own profile fields, but not email or role", async () => {
+    const doctor = await registerDoctor({ email: "editme@example.com", specialization: "Cardiologist" });
+
+    const res = await request(app)
+      .patch("/api/users/me")
+      .set("Cookie", doctor.cookie)
+      .send({
+        bio: "Updated bio",
+        consultationFee: 999,
+        email: "hacked@example.com",
+        role: "admin",
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.bio).toBe("Updated bio");
+    expect(res.body.consultationFee).toBe(999);
+    expect(res.body.email).toBe("editme@example.com");
+
+    const stored = await User.findById(doctor.userId);
+    expect(stored.role).toBe("doctor");
+    expect(stored.email).toBe("editme@example.com");
+  });
+
+  it("requires login and a doctor role to edit a profile", async () => {
+    const anonymous = await request(app).patch("/api/users/me").send({ bio: "x" });
+    expect(anonymous.status).toBe(401);
+  });
+});

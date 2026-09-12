@@ -21,4 +21,12 @@ const loginValidator = [
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
-module.exports = { registerValidator, loginValidator };
+const forgotPasswordValidator = [
+  body("email").isEmail().withMessage("A valid email is required").normalizeEmail(),
+];
+
+const resetPasswordValidator = [
+  body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),
+];
+
+module.exports = { registerValidator, loginValidator, forgotPasswordValidator, resetPasswordValidator };

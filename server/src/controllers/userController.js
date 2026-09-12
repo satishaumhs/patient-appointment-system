@@ -71,6 +71,34 @@ const getDoctorReviews = asyncHandler(async (req, res) => {
   res.json(reviews);
 });
 
+const PROFILE_EDITABLE_FIELDS = [
+  "name",
+  "specialization",
+  "location",
+  "consultationType",
+  "bio",
+  "experience",
+  "qualification",
+  "consultationFee",
+];
+
+// Self-service profile editing -- deliberately excludes email/password,
+// which need their own, more careful flows (email touches login identity;
+// password change should require the current password).
+const updateMyProfile = asyncHandler(async (req, res) => {
+  const updates = {};
+  PROFILE_EDITABLE_FIELDS.forEach((field) => {
+    if (req.body[field] !== undefined) updates[field] = req.body[field];
+  });
+
+  const user = await User.findByIdAndUpdate(req.user._id, updates, {
+    returnDocument: "after",
+    runValidators: true,
+  }).select(DOCTOR_FIELDS);
+
+  res.json(user);
+});
+
 const getUsers = asyncHandler(async (req, res) => {
   const users = await User.find().select("name email role createdAt").sort({ createdAt: -1 });
   res.json(users);
@@ -94,4 +122,4 @@ const deleteUser = asyncHandler(async (req, res) => {
   res.json({ message: "User removed" });
 });
 
-module.exports = { getDoctors, getDoctorById, getDoctorReviews, getUsers, deleteUser };
+module.exports = { getDoctors, getDoctorById, getDoctorReviews, updateMyProfile, getUsers, deleteUser };

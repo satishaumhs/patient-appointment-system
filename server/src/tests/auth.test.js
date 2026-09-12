@@ -89,4 +89,39 @@ describe("Auth", () => {
     const res = await request(app).get("/api/auth/me");
     expect(res.status).toBe(401);
   });
+
+  it("runs the password reset flow end to end, and rejects a reused or bad token", async () => {
+    await request(app).post("/api/auth/register").send({
+      name: "Carol",
+      email: "carol@example.com",
+      password: "password123",
+      specialization: "Cardiologist",
+    });
+
+    const forgot = await request(app).post("/api/auth/forgot-password").send({ email: "carol@example.com" });
+    expect(forgot.status).toBe(200);
+    expect(forgot.body.demoResetLink).toMatch(/\/reset-password\//);
+    const token = forgot.body.demoResetLink.split("/reset-password/")[1];
+
+    const badToken = await request(app).post("/api/auth/reset-password/not-a-real-token").send({ password: "newpassword123" });
+    expect(badToken.status).toBe(400);
+
+    const reset = await request(app).post(`/api/auth/reset-password/${token}`).send({ password: "newpassword123" });
+    expect(reset.status).toBe(200);
+
+    const loginOld = await request(app).post("/api/auth/login").send({ email: "carol@example.com", password: "password123" });
+    expect(loginOld.status).toBe(401);
+
+    const loginNew = await request(app).post("/api/auth/login").send({ email: "carol@example.com", password: "newpassword123" });
+    expect(loginNew.status).toBe(200);
+
+    const reuse = await request(app).post(`/api/auth/reset-password/${token}`).send({ password: "anotherpassword" });
+    expect(reuse.status).toBe(400);
+  });
+
+  it("gives the same response for forgot-password on an unregistered email, without a reset link", async () => {
+    const res = await request(app).post("/api/auth/forgot-password").send({ email: "nobody@example.com" });
+    expect(res.status).toBe(200);
+    expect(res.body.demoResetLink).toBeUndefined();
+  });
 });
