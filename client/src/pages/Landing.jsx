@@ -80,11 +80,11 @@ const Landing = () => {
             Online appointment booking
           </span>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight max-w-3xl mx-auto text-balance">
-            See a doctor without creating an account.
+            Book a doctor's appointment in minutes.
           </h1>
           <p className="mt-5 text-lg text-gray-600 max-w-2xl mx-auto">
-            Book an appointment with our doctors in minutes. Just tell us who you are and when
-            works for you — we'll take it from there.
+            No account needed. Just tell us who you are and when works for you — we'll take it
+            from there.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
