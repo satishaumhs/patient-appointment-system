@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import api from "../api/axios";
 
 const FEATURES = [
   {
     title: "Find the right doctor",
+    tint: "teal",
     description: "Browse doctors on the platform and pick who's right for your visit.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
@@ -13,6 +16,7 @@ const FEATURES = [
   },
   {
     title: "Book instantly",
+    tint: "violet",
     description: "See real, open time slots and reserve one in seconds — no phone calls.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
@@ -25,6 +29,7 @@ const FEATURES = [
   },
   {
     title: "No account needed",
+    tint: "teal",
     description: "Just tell us who you are when you book. Check your status anytime with your reference number.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
@@ -35,11 +40,29 @@ const FEATURES = [
   },
 ];
 
+const ICON_TINTS = {
+  teal: "bg-teal-100 text-teal-700",
+  violet: "bg-violet-100 text-violet-700",
+};
+
 const Landing = () => {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    api.get("/users/doctors").then((res) => {
+      const specializations = new Set(res.data.map((d) => d.specialization).filter(Boolean));
+      setStats({ doctors: res.data.length, specializations: specializations.size });
+    });
+  }, []);
+
   return (
     <div>
-      <section className="bg-gradient-to-b from-teal-50 to-white">
-        <div className="max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">
+      <section className="relative overflow-hidden bg-gradient-to-b from-teal-50 via-white to-white">
+        <div
+          className="absolute -top-24 right-[-10%] w-96 h-96 rounded-full bg-violet-200/30 blur-3xl"
+          aria-hidden="true"
+        />
+        <div className="relative max-w-5xl mx-auto px-6 pt-20 pb-24 text-center">
           <span className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-teal-700 bg-teal-100 rounded-full px-4 py-1.5 mb-6">
             <svg
               viewBox="0 0 24 24"
@@ -56,9 +79,12 @@ const Landing = () => {
             </svg>
             Online appointment booking
           </span>
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight max-w-3xl mx-auto text-balance">
+            See a doctor without creating an account.
+          </h1>
           <p className="mt-5 text-lg text-gray-600 max-w-2xl mx-auto">
-            Book an appointment with our doctors in minutes — no account needed. Just tell us who
-            you are and when works for you.
+            Book an appointment with our doctors in minutes. Just tell us who you are and when
+            works for you — we'll take it from there.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -80,6 +106,20 @@ const Landing = () => {
               Check your appointment status
             </Link>
           </p>
+
+          {stats && (
+            <div className="mt-12 inline-flex items-center gap-6 text-sm text-gray-500 bg-white/80 border border-gray-200 rounded-full px-6 py-3">
+              <span>
+                <b className="text-gray-900 font-semibold">{stats.doctors}</b> doctors
+              </span>
+              <span className="w-1 h-1 rounded-full bg-gray-300" aria-hidden="true" />
+              <span>
+                <b className="text-gray-900 font-semibold">{stats.specializations}</b> specialties
+              </span>
+              <span className="w-1 h-1 rounded-full bg-gray-300" aria-hidden="true" />
+              <span>Booking open now</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -87,7 +127,9 @@ const Landing = () => {
         <div className="grid sm:grid-cols-3 gap-8">
           {FEATURES.map((f) => (
             <div key={f.title} className="text-center sm:text-left">
-              <div className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-teal-100 text-teal-700 mb-4">
+              <div
+                className={`inline-flex items-center justify-center w-11 h-11 rounded-lg mb-4 ${ICON_TINTS[f.tint]}`}
+              >
                 {f.icon}
               </div>
               <h3 className="text-base font-semibold text-gray-900">{f.title}</h3>

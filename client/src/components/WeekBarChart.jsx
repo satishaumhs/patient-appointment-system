@@ -7,7 +7,7 @@ const WeekBarChart = ({ data }) => {
         <div key={d.label} className="flex-1 flex flex-col items-center gap-2 h-full">
           <div className="flex-1 w-full flex items-end justify-center">
             <div
-              className="w-full max-w-9 bg-teal-500 rounded-t-md"
+              className="w-full max-w-9 rounded-t-md bg-gradient-to-t from-teal-500 to-violet-500"
               style={{ height: d.count > 0 ? `${(d.count / max) * 100}%` : "3px" }}
               title={`${d.count} appointment${d.count === 1 ? "" : "s"}`}
             />
