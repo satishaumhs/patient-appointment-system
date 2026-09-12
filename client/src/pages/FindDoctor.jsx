@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/axios";
 import DoctorCard from "../components/DoctorCard";
 import { HeartIcon, ScaleIcon, XIcon } from "../components/icons";
@@ -198,7 +199,12 @@ const FindDoctor = () => {
         <div className="bg-white rounded-xl border border-gray-200 p-5 sticky bottom-4 shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">Comparing {compareDoctors.length} doctors</h2>
-            <button type="button" onClick={exitCompare} className="text-gray-400 hover:text-gray-600">
+            <button
+              type="button"
+              onClick={exitCompare}
+              aria-label="Close comparison"
+              className="text-gray-400 hover:text-gray-600"
+            >
               <XIcon className="w-4 h-4" />
             </button>
           </div>
@@ -263,9 +269,9 @@ const FindDoctor = () => {
                   <td></td>
                   {compareDoctors.map((d) => (
                     <td key={d._id}>
-                      <a href={`/doctors/${d._id}`} className="text-teal-700 font-medium hover:underline">
+                      <Link to={`/doctors/${d._id}`} className="text-teal-700 font-medium hover:underline">
                         View profile →
-                      </a>
+                      </Link>
                     </td>
                   ))}
                 </tr>

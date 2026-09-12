@@ -3,8 +3,8 @@ const Logo = ({
   textClassName = "text-lg font-semibold text-gray-900",
 }) => (
   <>
-    <img src="/butterfly-logo.png" alt="My Health School" className={`${imgClassName} object-contain`} />
-    <span className={textClassName}>My Health School</span>
+    <img src="/butterfly-logo.png" alt="My Health School" className={`${imgClassName} object-contain shrink-0`} />
+    <span className={`${textClassName} whitespace-nowrap`}>My Health School</span>
   </>
 );
 
