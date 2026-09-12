@@ -151,6 +151,7 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
                   />
                   <input
                     placeholder="CVV"
+                    type="password"
                     inputMode="numeric"
                     value={cvv}
                     onChange={(e) => setCvv(formatCvv(e.target.value))}
