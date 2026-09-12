@@ -267,6 +267,19 @@ describe("Appointments", () => {
       .set("Cookie", doctor.cookie)
       .send({ status: "confirmed" });
     expect(confirm.body.videoLink).toMatch(/^https:\/\/meet\.jit\.si\/MHS-\d{5}-/);
+
+    // The frontend decides whether "Join video call" is offered by comparing
+    // the slot's real end time against the current time -- both the doctor's
+    // list and the patient's own lookup need that end time, not just a bare
+    // slot id, or the join window can't be computed at all.
+    const mine = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const listed = mine.body.find((a) => a._id === created.body._id);
+    expect(listed.slot.endTime).toBe(slots.body[0].endTime);
+
+    const lookup = await request(app)
+      .post(`/api/appointments/status/${created.body.referenceNumber}`)
+      .send({ phone: created.body.patientInfo.phone });
+    expect(lookup.body.slot.endTime).toBe(slots.body[0].endTime);
   });
 
   it("reports queue position as the count of earlier confirmed visits with the same doctor that day", async () => {

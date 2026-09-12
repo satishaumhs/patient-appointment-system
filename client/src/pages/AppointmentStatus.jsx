@@ -12,6 +12,7 @@ import {
   UsersIcon,
   ChevronLeftIcon,
 } from "../components/icons";
+import { isVideoCallJoinable, isVideoCallUpcoming } from "../utils/videoCall";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -207,15 +208,24 @@ const AppointmentStatus = () => {
           )}
 
           {result.videoLink && (
-            <a
-              href={result.videoLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 flex items-center justify-center gap-2 rounded-md bg-blue-600 text-white py-2.5 text-sm font-medium hover:bg-blue-700"
-            >
-              <VideoIcon className="w-4 h-4" />
-              Join video consultation
-            </a>
+            isVideoCallJoinable(result) ? (
+              <a
+                href={result.videoLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 flex items-center justify-center gap-2 rounded-md bg-blue-600 text-white py-2.5 text-sm font-medium hover:bg-blue-700"
+              >
+                <VideoIcon className="w-4 h-4" />
+                Join video consultation
+              </a>
+            ) : (
+              isVideoCallUpcoming(result) && (
+                <p className="mt-4 flex items-center justify-center gap-2 rounded-md bg-gray-100 text-gray-500 py-2.5 text-sm font-medium">
+                  <VideoIcon className="w-4 h-4" />
+                  Video call opens 10 minutes before your appointment
+                </p>
+              )
+            )
           )}
 
           {result.payment && result.payment.status !== "not_required" && (

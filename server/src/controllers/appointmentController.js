@@ -106,7 +106,10 @@ const getAppointments = asyncHandler(async (req, res) => {
     filter.status = req.query.status;
   }
 
-  const appointments = await Appointment.find(filter).populate("doctor", "name email").sort({ date: 1 });
+  const appointments = await Appointment.find(filter)
+    .populate("doctor", "name email")
+    .populate("slot", "endTime")
+    .sort({ date: 1 });
 
   res.json(appointments);
 });
@@ -136,10 +139,9 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
   const { referenceNumber } = req.params;
   const { phone } = req.body;
 
-  const appointment = await Appointment.findOne({ referenceNumber }).populate(
-    "doctor",
-    "name specialization"
-  );
+  const appointment = await Appointment.findOne({ referenceNumber })
+    .populate("doctor", "name specialization")
+    .populate("slot", "endTime");
 
   if (!appointment || appointment.patientInfo.phone !== phone) {
     return res.status(404).json({ message: "No appointment found for that reference number and phone number" });
@@ -176,6 +178,7 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
     patientInfo: appointment.patientInfo,
     doctor: appointment.doctor,
     date: appointment.date,
+    slot: appointment.slot,
     reason: appointment.status === "completed" ? appointment.reason : undefined,
     appointmentType: appointment.appointmentType,
     status: appointment.status,

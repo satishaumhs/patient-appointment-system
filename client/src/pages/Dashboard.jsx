@@ -7,6 +7,7 @@ import StatusDonut from "../components/StatusDonut";
 import WeekBarChart from "../components/WeekBarChart";
 import ReschedulePanel from "../components/ReschedulePanel";
 import { CalendarIcon, ClockIcon, CheckCircleIcon, UsersIcon, StethoscopeIcon, VideoIcon } from "../components/icons";
+import { isVideoCallJoinable, isVideoCallUpcoming } from "../utils/videoCall";
 
 const STATUS_STYLES = {
   pending: "bg-yellow-100 text-yellow-800",
@@ -223,15 +224,24 @@ const Dashboard = () => {
                       {appt.reason ? ` · ${appt.reason}` : ""}
                     </p>
                     {appt.status === "confirmed" && appt.appointmentType === "video" && appt.videoLink && (
-                      <a
-                        href={appt.videoLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 hover:underline mt-1"
-                      >
-                        <VideoIcon className="w-3.5 h-3.5" />
-                        Join video call
-                      </a>
+                      isVideoCallJoinable(appt) ? (
+                        <a
+                          href={appt.videoLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 hover:underline mt-1"
+                        >
+                          <VideoIcon className="w-3.5 h-3.5" />
+                          Join video call
+                        </a>
+                      ) : (
+                        isVideoCallUpcoming(appt) && (
+                          <p className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 mt-1">
+                            <VideoIcon className="w-3.5 h-3.5" />
+                            Video call opens 10 min before the appointment
+                          </p>
+                        )
+                      )
                     )}
                   </div>
                   <div className="flex items-center gap-2">
