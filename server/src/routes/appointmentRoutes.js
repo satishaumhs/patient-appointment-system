@@ -9,6 +9,7 @@ const {
   cancelAppointmentByReference,
   payAppointmentByReference,
   submitReview,
+  markAppointmentPaid,
   deleteAppointment,
 } = require("../controllers/appointmentController");
 const { protect, authorize } = require("../middleware/authMiddleware");
@@ -61,6 +62,7 @@ router.get("/", protect, getAppointments);
 router.get("/:id", protect, getAppointmentById);
 router.patch("/:id/status", protect, updateStatusValidator, validateRequest, updateAppointmentStatus);
 router.patch("/:id/reschedule", protect, authorize("doctor"), rescheduleValidator, validateRequest, rescheduleAppointment);
+router.patch("/:id/mark-paid", protect, markAppointmentPaid);
 router.delete("/:id", protect, authorize("admin"), deleteAppointment);
 
 module.exports = router;

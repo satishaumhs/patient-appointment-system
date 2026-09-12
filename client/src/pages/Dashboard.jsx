@@ -75,6 +75,16 @@ const Dashboard = () => {
     }
   };
 
+  const markPaid = async (id) => {
+    setActionError("");
+    try {
+      await api.patch(`/appointments/${id}/mark-paid`);
+      load();
+    } catch (err) {
+      setActionError(err.response?.data?.message || "Could not mark as paid");
+    }
+  };
+
   const statusCounts = useMemo(() => {
     const counts = emptyCounts();
     appointments.forEach((a) => {
@@ -231,9 +241,18 @@ const Dashboard = () => {
                       </span>
                     )}
                     {appt.payment?.status === "pending" && (
-                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">
-                        Payment pending
-                      </span>
+                      <>
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                          Payment pending
+                        </span>
+                        <button
+                          onClick={() => markPaid(appt._id)}
+                          title="Record that this patient paid in cash at the clinic"
+                          className="text-xs px-2 py-1 rounded-md border border-teal-600 text-teal-700 hover:bg-teal-50"
+                        >
+                          Mark paid (cash)
+                        </button>
+                      </>
                     )}
                     <span
                       className={`text-xs font-medium px-2 py-1 rounded-full ${STATUS_STYLES[appt.status]}`}

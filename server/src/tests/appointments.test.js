@@ -296,4 +296,31 @@ describe("Appointments", () => {
       .send({ phone: "9001110001" });
     expect(lookupFirst.body.queuePosition).toBe(0);
   });
+
+  it("lets a doctor mark a pay-at-clinic appointment as paid in cash, once, and only their own", async () => {
+    const doctor = await registerDoctor({ email: "doccash@example.com", consultationFee: 400 });
+    const otherDoctor = await registerDoctor({ email: "doccash2@example.com" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-26", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-26");
+    const created = await bookAppointment(slots.body[0]._id, { patientInfo: samplePatientInfo({ phone: "9001110004" }) });
+    expect(created.body.payment.status).toBe("pending");
+
+    const wrongDoctor = await request(app)
+      .patch(`/api/appointments/${created.body._id}/mark-paid`)
+      .set("Cookie", otherDoctor.cookie);
+    expect(wrongDoctor.status).toBe(403);
+
+    const marked = await request(app)
+      .patch(`/api/appointments/${created.body._id}/mark-paid`)
+      .set("Cookie", doctor.cookie);
+    expect(marked.status).toBe(200);
+    expect(marked.body.payment.status).toBe("paid");
+    expect(marked.body.payment.method).toBe("cash");
+
+    const again = await request(app)
+      .patch(`/api/appointments/${created.body._id}/mark-paid`)
+      .set("Cookie", doctor.cookie);
+    expect(again.status).toBe(400);
+  });
 });

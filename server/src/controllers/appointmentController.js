@@ -415,6 +415,34 @@ const submitReview = asyncHandler(async (req, res) => {
   }
 });
 
+// Doctor/admin-only: reconciles a patient who chose "pay at clinic" instead
+// of the demo digital flow -- without this, that appointment's payment
+// stays "pending" forever with no way to record the cash actually collected.
+const markAppointmentPaid = asyncHandler(async (req, res) => {
+  const appointment = await Appointment.findById(req.params.id);
+
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  const isOwnerDoctor = appointment.doctor.equals(req.user._id);
+  if (req.user.role === "doctor" && !isOwnerDoctor) {
+    return res.status(403).json({ message: "Not authorized to update this appointment" });
+  }
+
+  if (appointment.payment.status !== "pending") {
+    return res.status(400).json({ message: `Payment is already ${appointment.payment.status}` });
+  }
+
+  appointment.payment.status = "paid";
+  appointment.payment.method = "cash";
+  appointment.payment.paidAt = new Date();
+  appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}`;
+  await appointment.save();
+
+  res.json(appointment);
+});
+
 const deleteAppointment = asyncHandler(async (req, res) => {
   const appointment = await Appointment.findById(req.params.id);
 
@@ -439,5 +467,6 @@ module.exports = {
   cancelAppointmentByReference,
   payAppointmentByReference,
   submitReview,
+  markAppointmentPaid,
   deleteAppointment,
 };

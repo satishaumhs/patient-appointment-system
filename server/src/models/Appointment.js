@@ -76,7 +76,7 @@ const appointmentSchema = new mongoose.Schema(
         default: "not_required",
       },
       amount: { type: Number, min: 0 },
-      method: { type: String, enum: ["card", "upi"] },
+      method: { type: String, enum: ["card", "upi", "cash"] },
       paidAt: Date,
       transactionId: { type: String, trim: true },
     },
