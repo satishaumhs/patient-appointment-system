@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/axios";
 import MonthCalendar from "../components/MonthCalendar";
 import StatCard from "../components/StatCard";
-import { CalendarIcon, CheckCircleIcon, ClockIcon, UsersIcon, LockIcon, BanIcon, BellIcon } from "../components/icons";
+import {
+  CalendarIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  UsersIcon,
+  LockIcon,
+  BanIcon,
+  BellIcon,
+  ChevronLeftIcon,
+} from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -252,6 +262,10 @@ const ManageAvailability = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4">
+        <ChevronLeftIcon className="w-4 h-4" />
+        Back to Dashboard
+      </Link>
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">Manage availability</h1>
       <p className="text-sm text-gray-500 mb-6">
         Set your available time slots. Patients can only book times you've opened up.

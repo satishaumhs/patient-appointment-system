@@ -15,6 +15,7 @@ import {
   MailIcon,
   TicketIcon,
   CheckCircleIcon,
+  ChevronLeftIcon,
 } from "../components/icons";
 
 const inputClass =
@@ -201,6 +202,10 @@ const BookAppointment = () => {
   if (bookingResult) {
     return (
       <div className="max-w-md mx-auto">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4">
+          <ChevronLeftIcon className="w-4 h-4" />
+          Back to home
+        </Link>
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
           <div className="w-14 h-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4">
             <CheckCircleIcon className="w-7 h-7" />
@@ -254,6 +259,10 @@ const BookAppointment = () => {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4">
+        <ChevronLeftIcon className="w-4 h-4" />
+        Back to home
+      </Link>
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">Book an appointment</h1>
       <p className="text-sm text-gray-500 mb-6">No account needed — tell us about yourself, pick a doctor and time, and confirm.</p>
 

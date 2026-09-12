@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
+import { ChevronLeftIcon } from "../components/icons";
 
 const ROLE_STYLES = {
   doctor: "bg-blue-100 text-blue-800",
@@ -69,6 +70,10 @@ const AdminUsers = () => {
 
   return (
     <div className="max-w-3xl mx-auto">
+      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4">
+        <ChevronLeftIcon className="w-4 h-4" />
+        Back to Dashboard
+      </Link>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Manage users</h1>
 
       <div className="flex flex-wrap gap-2 mb-5">

@@ -50,10 +50,12 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
 
   const isActive = !INACTIVE_STATUSES.includes(appointmentStatus);
 
-  const detailsValid =
-    method === "card"
-      ? cardNumber.replace(/\s/g, "").length === 16 && isValidExpiry(expiry) && cvv.length === 3
-      : UPI_ID_PATTERN.test(upiId);
+  const cardNumberValid = cardNumber.replace(/\s/g, "").length === 16;
+  const expiryValid = isValidExpiry(expiry);
+  const cvvValid = cvv.length === 3;
+  const upiValid = UPI_ID_PATTERN.test(upiId);
+
+  const detailsValid = method === "card" ? cardNumberValid && expiryValid && cvvValid : upiValid;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -131,44 +133,62 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
               </div>
               {method === "card" ? (
                 <div className="grid grid-cols-2 gap-2">
-                  <input
-                    placeholder="4242 4242 4242 4242"
-                    inputMode="numeric"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                    maxLength={19}
-                    required
-                    className={`col-span-2 ${plainInputClass}`}
-                  />
-                  <input
-                    placeholder="MM/YY"
-                    inputMode="numeric"
-                    value={expiry}
-                    onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                    maxLength={5}
-                    required
-                    className={plainInputClass}
-                  />
-                  <input
-                    placeholder="CVV"
-                    type="password"
-                    inputMode="numeric"
-                    value={cvv}
-                    onChange={(e) => setCvv(formatCvv(e.target.value))}
-                    maxLength={3}
-                    required
-                    className={plainInputClass}
-                  />
+                  <div className="col-span-2">
+                    <input
+                      placeholder="4242 4242 4242 4242"
+                      inputMode="numeric"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                      maxLength={19}
+                      required
+                      className={plainInputClass}
+                    />
+                    {cardNumber.length > 0 && !cardNumberValid && (
+                      <p className="text-xs text-red-600 mt-1">Card number must be 16 digits</p>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      placeholder="MM/YY"
+                      inputMode="numeric"
+                      value={expiry}
+                      onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                      maxLength={5}
+                      required
+                      className={plainInputClass}
+                    />
+                    {expiry.length === 5 && !expiryValid && (
+                      <p className="text-xs text-red-600 mt-1">Month must be 01–12</p>
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      placeholder="CVV"
+                      type="password"
+                      inputMode="numeric"
+                      value={cvv}
+                      onChange={(e) => setCvv(formatCvv(e.target.value))}
+                      maxLength={3}
+                      required
+                      className={plainInputClass}
+                    />
+                    {cvv.length > 0 && !cvvValid && <p className="text-xs text-red-600 mt-1">3 digits</p>}
+                  </div>
                 </div>
               ) : (
-                <input
-                  placeholder="yourname@upi"
-                  value={upiId}
-                  onChange={(e) => setUpiId(formatUpiId(e.target.value))}
-                  maxLength={20}
-                  required
-                  className={plainInputClass}
-                />
+                <div>
+                  <input
+                    placeholder="yourname@upi"
+                    value={upiId}
+                    onChange={(e) => setUpiId(formatUpiId(e.target.value))}
+                    maxLength={20}
+                    required
+                    className={plainInputClass}
+                  />
+                  {upiId.length > 0 && !upiValid && (
+                    <p className="text-xs text-red-600 mt-1">Enter a valid UPI ID, e.g. yourname@bank</p>
+                  )}
+                </div>
               )}
               {error && <p className="text-xs text-red-600">{error}</p>}
               <div className="flex gap-2">
