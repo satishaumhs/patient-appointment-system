@@ -1,7 +1,17 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/axios";
 import DemoPaymentForm from "../components/DemoPaymentForm";
-import { TicketIcon, PhoneIcon, CalendarIcon, ClockIcon, VideoIcon, StarIcon, UsersIcon } from "../components/icons";
+import {
+  TicketIcon,
+  PhoneIcon,
+  CalendarIcon,
+  ClockIcon,
+  VideoIcon,
+  StarIcon,
+  UsersIcon,
+  ChevronLeftIcon,
+} from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -107,6 +117,10 @@ const AppointmentStatus = () => {
 
   return (
     <div className="max-w-md mx-auto">
+      <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4">
+        <ChevronLeftIcon className="w-4 h-4" />
+        Back to home
+      </Link>
       <h1 className="text-2xl font-semibold text-gray-900 mb-1">Check appointment status</h1>
       <p className="text-sm text-gray-500 mb-6">
         Enter the reference number and mobile number you used when booking.
