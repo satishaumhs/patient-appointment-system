@@ -231,3 +231,10 @@ export const CreditCardIcon = (props) => (
     <line x1="6" y1="14.5" x2="10" y2="14.5" />
   </svg>
 );
+
+export const EditIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+    <line x1="14.5" y1="5.5" x2="18.5" y2="9.5" />
+  </svg>
+);
