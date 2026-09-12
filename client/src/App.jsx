@@ -10,6 +10,7 @@ import BookAppointment from "./pages/BookAppointment";
 import AppointmentStatus from "./pages/AppointmentStatus";
 import ManageAvailability from "./pages/ManageAvailability";
 import AdminUsers from "./pages/AdminUsers";
+import AdminAnalytics from "./pages/AdminAnalytics";
 import Landing from "./pages/Landing";
 import FindDoctor from "./pages/FindDoctor";
 import DoctorProfile from "./pages/DoctorProfile";
@@ -51,6 +52,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <AdminUsers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminAnalytics />
                 </ProtectedRoute>
               }
             />

@@ -199,6 +199,15 @@ export const BanIcon = (props) => (
   </svg>
 );
 
+export const BarChartIcon = (props) => (
+  <svg {...base} {...props}>
+    <line x1="4" y1="20" x2="20" y2="20" />
+    <rect x="5.5" y="13" width="3" height="7" rx="0.5" />
+    <rect x="10.5" y="9" width="3" height="11" rx="0.5" />
+    <rect x="15.5" y="4" width="3" height="16" rx="0.5" />
+  </svg>
+);
+
 export const HeartIcon = (props) => (
   <svg {...base} {...props}>
     <path d="M12 20s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 5c-2.5 4.5-9.5 9-9.5 9z" />
