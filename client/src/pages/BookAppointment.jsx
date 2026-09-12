@@ -170,6 +170,9 @@ const BookAppointment = () => {
     setStep(2);
   };
 
+  const handleBackToDoctorPicker = () => setStep(1);
+  const handleBackFromDateTime = () => setStep(preselectedDoctorId ? 1 : 2);
+
   const handleSelectDate = (dateKey) => {
     setSelectedDate(dateKey);
     setSlotId("");
@@ -422,6 +425,14 @@ const BookAppointment = () => {
 
       {step === 2 && (
         <div>
+          <button
+            type="button"
+            onClick={handleBackToDoctorPicker}
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+            Back
+          </button>
           <div className="flex flex-col sm:flex-row gap-3 mb-5">
             <input
               type="text"
@@ -598,14 +609,23 @@ const BookAppointment = () => {
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    disabled={!slotId}
-                    onClick={() => setStep(4)}
-                    className="w-full mt-6 rounded-md bg-teal-600 text-white py-2.5 font-medium hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next: Confirm appointment
-                  </button>
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={handleBackFromDateTime}
+                      className="rounded-md border border-gray-300 text-gray-700 px-4 py-2.5 text-sm font-medium hover:bg-gray-50"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!slotId}
+                      onClick={() => setStep(4)}
+                      className="flex-1 rounded-md bg-teal-600 text-white py-2.5 font-medium hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next: Confirm appointment
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
