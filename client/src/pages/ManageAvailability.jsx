@@ -165,6 +165,32 @@ const ManageAvailability = () => {
     [slots, selectedDate]
   );
 
+  const [clearingDay, setClearingDay] = useState(false);
+
+  const handleClearDay = async () => {
+    if (openSlotsForSelectedDate.length === 0) return;
+    const dayLabel = new Date(selectedDate).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    if (
+      !window.confirm(
+        `Remove all ${openSlotsForSelectedDate.length} open slot(s) on ${dayLabel}? Booked and blocked slots are left as-is.`
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setClearingDay(true);
+    try {
+      for (const slot of openSlotsForSelectedDate) {
+        await api.delete(`/availability/${slot._id}`);
+      }
+      await loadAll();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to clear the day");
+    } finally {
+      setClearingDay(false);
+    }
+  };
+
   const handleBlockChange = (e) => setBlockForm({ ...blockForm, [e.target.name]: e.target.value });
 
   const handleBlockSubmit = async (e) => {
@@ -337,6 +363,18 @@ const ManageAvailability = () => {
                   day: "numeric",
                 })}
               </p>
+              {openSlotsForSelectedDate.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearDay}
+                  disabled={clearingDay}
+                  className="text-xs font-medium text-red-600 hover:underline mt-1 disabled:opacity-50"
+                >
+                  {clearingDay
+                    ? "Clearing..."
+                    : `Clear this day (${openSlotsForSelectedDate.length} open slot${openSlotsForSelectedDate.length === 1 ? "" : "s"})`}
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
               <span className="flex items-center gap-1.5">
