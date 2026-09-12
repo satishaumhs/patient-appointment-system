@@ -255,13 +255,24 @@ const Dashboard = () => {
                         <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">
                           Payment pending
                         </span>
-                        <button
-                          onClick={() => markPaid(appt._id)}
-                          title="Record that this patient paid in cash at the clinic"
-                          className="text-xs px-2 py-1 rounded-md border border-teal-600 text-teal-700 hover:bg-teal-50"
-                        >
-                          Mark paid (cash)
-                        </button>
+                        {appt.appointmentType !== "video" && (
+                          new Date(appt.date) <= new Date() ? (
+                            <button
+                              onClick={() => markPaid(appt._id)}
+                              title="Record that this patient paid in cash at the clinic"
+                              className="text-xs px-2 py-1 rounded-md border border-teal-600 text-teal-700 hover:bg-teal-50"
+                            >
+                              Mark paid (cash)
+                            </button>
+                          ) : (
+                            <span
+                              title="Cash can only be marked as paid once the appointment date arrives"
+                              className="text-xs text-gray-400"
+                            >
+                              Mark paid (cash) — available on the appointment date
+                            </span>
+                          )
+                        )}
                       </>
                     )}
                     <span

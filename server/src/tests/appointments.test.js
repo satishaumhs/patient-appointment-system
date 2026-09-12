@@ -1,5 +1,6 @@
 const request = require("supertest");
 const app = require("../app");
+const Appointment = require("../models/Appointment");
 
 const registerDoctor = async (overrides = {}) => {
   const res = await request(app)
@@ -319,6 +320,11 @@ describe("Appointments", () => {
     const created = await bookAppointment(slots.body[0]._id, { patientInfo: samplePatientInfo({ phone: "9001110004" }) });
     expect(created.body.payment.status).toBe("pending");
 
+    // Booking has to target a future slot, but "mark paid" is only meaningful
+    // once the visit has actually happened -- push the stored date into the
+    // past directly, the same way real time passing would.
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 60 * 60 * 1000) });
+
     const wrongDoctor = await request(app)
       .patch(`/api/appointments/${created.body._id}/mark-paid`)
       .set("Cookie", otherDoctor.cookie);
@@ -335,5 +341,37 @@ describe("Appointments", () => {
       .patch(`/api/appointments/${created.body._id}/mark-paid`)
       .set("Cookie", doctor.cookie);
     expect(again.status).toBe(400);
+  });
+
+  it("rejects marking cash payment before the appointment date arrives", async () => {
+    const doctor = await registerDoctor({ email: "doccash3@example.com", consultationFee: 400 });
+
+    await genSlots(doctor.cookie, { date: "2027-01-27", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-27");
+    const created = await bookAppointment(slots.body[0]._id, { patientInfo: samplePatientInfo({ phone: "9001110005" }) });
+
+    const tooSoon = await request(app)
+      .patch(`/api/appointments/${created.body._id}/mark-paid`)
+      .set("Cookie", doctor.cookie);
+    expect(tooSoon.status).toBe(400);
+    expect(tooSoon.body.message).toMatch(/before the appointment date/);
+  });
+
+  it("rejects marking cash payment for a video appointment", async () => {
+    const doctor = await registerDoctor({ email: "doccash4@example.com", consultationFee: 400 });
+
+    await genSlots(doctor.cookie, { date: "2027-01-28", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-28");
+    const created = await bookAppointment(slots.body[0]._id, {
+      appointmentType: "video",
+      patientInfo: samplePatientInfo({ phone: "9001110006" }),
+    });
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 60 * 60 * 1000) });
+
+    const rejected = await request(app)
+      .patch(`/api/appointments/${created.body._id}/mark-paid`)
+      .set("Cookie", doctor.cookie);
+    expect(rejected.status).toBe(400);
+    expect(rejected.body.message).toMatch(/video consultation/);
   });
 });

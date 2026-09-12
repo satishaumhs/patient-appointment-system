@@ -437,6 +437,16 @@ const markAppointmentPaid = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: `Payment is already ${appointment.payment.status}` });
   }
 
+  // Cash means paid in person at the clinic -- doesn't apply to a video
+  // visit, and can't have happened yet if the visit itself hasn't.
+  if (appointment.appointmentType === "video") {
+    return res.status(400).json({ message: "Cash payment isn't applicable to a video consultation" });
+  }
+
+  if (appointment.date > new Date()) {
+    return res.status(400).json({ message: "Cannot mark payment as paid before the appointment date" });
+  }
+
   appointment.payment.status = "paid";
   appointment.payment.method = "cash";
   appointment.payment.paidAt = new Date();
