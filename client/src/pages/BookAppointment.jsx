@@ -142,6 +142,8 @@ const BookAppointment = () => {
   const handlePatientFieldBlur = (e) => setTouched({ ...touched, [e.target.name]: true });
   const handlePhoneChange = (e) =>
     setPatientForm({ ...patientForm, phone: e.target.value.replace(/\D/g, "").slice(0, 10) });
+  const handleAgeChange = (e) =>
+    setPatientForm({ ...patientForm, age: e.target.value.replace(/\D/g, "").slice(0, 3) });
 
   const phoneDigits = patientForm.phone;
   const phoneValid = phoneDigits.length === 10;
@@ -317,12 +319,11 @@ const BookAppointment = () => {
                 </label>
                 <input
                   id="age"
-                  type="number"
-                  min="0"
-                  max="120"
+                  type="text"
+                  inputMode="numeric"
                   name="age"
                   value={patientForm.age}
-                  onChange={handlePatientFormChange}
+                  onChange={handleAgeChange}
                   onBlur={handlePatientFieldBlur}
                   required
                   className={inputClass}
