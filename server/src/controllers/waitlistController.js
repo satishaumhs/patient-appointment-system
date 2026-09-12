@@ -27,6 +27,32 @@ const getMyWaitlist = asyncHandler(async (req, res) => {
   res.json(entries);
 });
 
+// Admin-only: waitlist demand across every doctor, not just one at a time.
+const getAllWaitlist = asyncHandler(async (req, res) => {
+  const entries = await Waitlist.find({ status: "waiting" })
+    .sort({ createdAt: 1 })
+    .populate("doctor", "name specialization")
+    .select("name phone doctor createdAt");
+
+  res.json(entries);
+});
+
+// Public: same phone-gated pattern as the appointment endpoints -- a patient
+// leaves with their own waitlist code + the phone they joined with.
+const leaveWaitlist = asyncHandler(async (req, res) => {
+  const { waitlistCode } = req.params;
+  const { phone } = req.body;
+
+  const entry = await Waitlist.findOne({ waitlistCode });
+
+  if (!entry || entry.phone !== phone) {
+    return res.status(404).json({ message: "No waitlist entry found for that code and phone number" });
+  }
+
+  await entry.deleteOne();
+  res.json({ message: "You've been removed from the waitlist" });
+});
+
 // Not a route -- called from the appointment/availability controllers
 // whenever a slot opens up for a doctor (new slots generated, or an
 // existing one freed by a cancellation/rejection/unblock). Pull-based: no
@@ -49,4 +75,4 @@ const notifyWaitlist = async (doctorId) => {
   });
 };
 
-module.exports = { joinWaitlist, getMyWaitlist, notifyWaitlist };
+module.exports = { joinWaitlist, getMyWaitlist, getAllWaitlist, leaveWaitlist, notifyWaitlist };

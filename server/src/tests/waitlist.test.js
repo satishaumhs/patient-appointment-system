@@ -1,5 +1,6 @@
 const request = require("supertest");
 const app = require("../app");
+const User = require("../models/User");
 
 const registerDoctor = async (overrides = {}) => {
   const res = await request(app)
@@ -51,5 +52,59 @@ describe("Waitlist", () => {
       .post("/api/waitlist")
       .send({ doctorId: "aaaaaaaaaaaaaaaaaaaaaaaa", name: "Nobody", phone: "9887766556" });
     expect(res.status).toBe(404);
+  });
+
+  it("lets a patient leave a waitlist using their code and phone", async () => {
+    const doctor = await registerDoctor({ email: "docwl3@example.com" });
+
+    const join = await request(app)
+      .post("/api/waitlist")
+      .send({ doctorId: doctor.userId, name: "Changed Mind", phone: "9887766557" });
+
+    const leave = await request(app)
+      .delete(`/api/waitlist/${join.body.waitlistCode}`)
+      .send({ phone: "9887766557" });
+    expect(leave.status).toBe(200);
+
+    const mine = await request(app).get("/api/waitlist/mine").set("Cookie", doctor.cookie);
+    expect(mine.body).toHaveLength(0);
+  });
+
+  it("gives an identical response for an unknown code and a wrong phone, so neither can be used to fish for the other", async () => {
+    const doctor = await registerDoctor({ email: "docwl4@example.com" });
+
+    const join = await request(app)
+      .post("/api/waitlist")
+      .send({ doctorId: doctor.userId, name: "Real Entry", phone: "9887766558" });
+
+    const wrongPhone = await request(app)
+      .delete(`/api/waitlist/${join.body.waitlistCode}`)
+      .send({ phone: "9887766559" });
+    const unknownCode = await request(app).delete("/api/waitlist/WL-00000").send({ phone: "9887766559" });
+
+    expect(wrongPhone.status).toBe(unknownCode.status);
+    expect(wrongPhone.body).toEqual(unknownCode.body);
+
+    // the real entry is untouched by the failed attempt
+    const mine = await request(app).get("/api/waitlist/mine").set("Cookie", doctor.cookie);
+    expect(mine.body).toHaveLength(1);
+  });
+
+  it("lets an admin see waitlist demand across every doctor, but not a plain doctor", async () => {
+    const doctorA = await registerDoctor({ email: "docwl5@example.com" });
+    const doctorB = await registerDoctor({ email: "docwl6@example.com", specialization: "Dermatologist" });
+    await User.findByIdAndUpdate(doctorA.userId, { role: "admin" });
+
+    await request(app)
+      .post("/api/waitlist")
+      .send({ doctorId: doctorB.userId, name: "Waiting For B", phone: "9887766560" });
+
+    const asAdmin = await request(app).get("/api/waitlist").set("Cookie", doctorA.cookie);
+    expect(asAdmin.status).toBe(200);
+    expect(asAdmin.body).toHaveLength(1);
+    expect(asAdmin.body[0].doctor.name).toBe("Test Doctor");
+
+    const asDoctor = await request(app).get("/api/waitlist").set("Cookie", doctorB.cookie);
+    expect(asDoctor.status).toBe(403);
   });
 });

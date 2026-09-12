@@ -46,6 +46,8 @@ const DoctorProfile = () => {
   const [waitlistCode, setWaitlistCode] = useState("");
   const [waitlistError, setWaitlistError] = useState("");
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [leavingWaitlist, setLeavingWaitlist] = useState(false);
+  const [leaveError, setLeaveError] = useState("");
 
   const handleWaitlistSubmit = async (e) => {
     e.preventDefault();
@@ -62,6 +64,22 @@ const DoctorProfile = () => {
       setWaitlistError(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || "Could not join the waitlist");
     } finally {
       setWaitlistSubmitting(false);
+    }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    if (!window.confirm("Leave the waitlist for this doctor?")) return;
+    setLeaveError("");
+    setLeavingWaitlist(true);
+    try {
+      await api.delete(`/waitlist/${waitlistCode}`, { data: { phone: waitlistForm.phone } });
+      setWaitlistCode("");
+      setWaitlistOpen(false);
+      setWaitlistForm({ name: "", phone: "" });
+    } catch (err) {
+      setLeaveError(err.response?.data?.message || "Could not leave the waitlist");
+    } finally {
+      setLeavingWaitlist(false);
     }
   };
 
@@ -185,6 +203,15 @@ const DoctorProfile = () => {
                     We'll note it if a slot opens up. Your code: <b>{waitlistCode}</b> — check back on this page,
                     it'll show as available the moment a slot opens.
                   </p>
+                  {leaveError && <p className="text-xs text-red-600 mt-2">{leaveError}</p>}
+                  <button
+                    type="button"
+                    onClick={handleLeaveWaitlist}
+                    disabled={leavingWaitlist}
+                    className="text-xs font-medium text-teal-700 hover:underline mt-2 disabled:opacity-50"
+                  >
+                    {leavingWaitlist ? "Leaving..." : "Changed your mind? Leave the waitlist"}
+                  </button>
                 </div>
               ) : (
                 <form onSubmit={handleWaitlistSubmit} className="space-y-3 max-w-sm">

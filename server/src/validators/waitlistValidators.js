@@ -16,4 +16,6 @@ const joinWaitlistValidator = [
   body("email").optional({ checkFalsy: true }).isEmail().withMessage("Enter a valid email").normalizeEmail(),
 ];
 
-module.exports = { joinWaitlistValidator };
+const leaveWaitlistValidator = [phoneValidator("phone")];
+
+module.exports = { joinWaitlistValidator, leaveWaitlistValidator };

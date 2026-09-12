@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import StatCard from "../components/StatCard";
 import StatusDonut from "../components/StatusDonut";
-import { CalendarIcon, CreditCardIcon, XCircleIcon, ClockIcon, ChevronLeftIcon } from "../components/icons";
+import { CalendarIcon, CreditCardIcon, XCircleIcon, ClockIcon, ChevronLeftIcon, BellIcon } from "../components/icons";
 
 const formatHour = (h) => {
   const d = new Date();
@@ -13,10 +13,25 @@ const formatHour = (h) => {
 
 const AdminAnalytics = () => {
   const [data, setData] = useState(null);
+  const [waitlist, setWaitlist] = useState([]);
 
   useEffect(() => {
     api.get("/analytics").then((res) => setData(res.data));
+    api.get("/waitlist").then((res) => setWaitlist(res.data));
   }, []);
+
+  const waitlistByDoctor = useMemo(() => {
+    const byDoctor = new Map();
+    waitlist.forEach((entry) => {
+      const key = entry.doctor?._id;
+      if (!key) return;
+      if (!byDoctor.has(key)) {
+        byDoctor.set(key, { name: entry.doctor.name, specialization: entry.doctor.specialization, count: 0 });
+      }
+      byDoctor.get(key).count += 1;
+    });
+    return [...byDoctor.values()].sort((a, b) => b.count - a.count);
+  }, [waitlist]);
 
   if (!data) {
     return <div className="p-8 text-center text-gray-500">Loading...</div>;
@@ -106,6 +121,34 @@ const AdminAnalytics = () => {
             );
           })}
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
+        <div className="flex items-center gap-2 mb-1">
+          <BellIcon className="w-4 h-4 text-violet-600" />
+          <h2 className="text-sm font-semibold text-gray-900">Waitlist demand</h2>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Patients waiting on a fully-booked doctor, across the whole platform -- a signal for where to open more
+          slots.
+        </p>
+        {waitlistByDoctor.length === 0 ? (
+          <p className="text-sm text-gray-500">No one is currently waiting on a doctor.</p>
+        ) : (
+          <div className="space-y-2">
+            {waitlistByDoctor.map((d) => (
+              <div key={d.name + d.specialization} className="flex items-center justify-between text-sm">
+                <div>
+                  <span className="font-medium text-gray-900">{d.name}</span>
+                  {d.specialization && <span className="text-gray-500"> · {d.specialization}</span>}
+                </div>
+                <span className="text-xs font-medium px-2 py-1 rounded-full bg-violet-50 text-violet-700 tabular-nums">
+                  {d.count} waiting
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
