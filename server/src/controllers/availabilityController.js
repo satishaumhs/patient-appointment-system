@@ -1,5 +1,6 @@
 const asyncHandler = require("../utils/asyncHandler");
 const Availability = require("../models/Availability");
+const { notifyWaitlist } = require("./waitlistController");
 
 // The organization operates in India (IST, UTC+5:30). Doctors enter times as
 // their own local wall-clock (e.g. "14:00" means 2pm where they are), so that
@@ -102,6 +103,10 @@ const generateSlots = asyncHandler(async (req, res) => {
     }
   }
 
+  if (createdCount > 0) {
+    await notifyWaitlist(req.user._id);
+  }
+
   res.status(201).json({
     message:
       dateStrs.length > 1
@@ -192,6 +197,8 @@ const unblockSlot = asyncHandler(async (req, res) => {
   if (!slot) {
     return res.status(404).json({ message: "No blocked slot found to unblock" });
   }
+
+  await notifyWaitlist(req.user._id);
 
   res.json(slot);
 });

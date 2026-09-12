@@ -7,6 +7,7 @@ const User = require("../models/User");
 const generateReferenceNumber = require("../utils/generateReferenceNumber");
 const generateVideoLink = require("../utils/generateVideoLink");
 const notify = require("../utils/notify");
+const { notifyWaitlist } = require("./waitlistController");
 
 const TERMINAL_STATUSES = ["completed", "cancelled", "rejected"];
 
@@ -179,6 +180,7 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
 
   if (["cancelled", "rejected"].includes(status)) {
     await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+    await notifyWaitlist(appointment.doctor._id);
   }
 
   const PATIENT_NOTICES = {
@@ -295,6 +297,7 @@ const cancelAppointmentByReference = asyncHandler(async (req, res) => {
   appointment.status = "cancelled";
   await appointment.save();
   await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+  await notifyWaitlist(appointment.doctor._id);
 
   await notify({
     appointment,
@@ -390,6 +393,7 @@ const deleteAppointment = asyncHandler(async (req, res) => {
 
   await appointment.deleteOne();
   await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+  await notifyWaitlist(appointment.doctor);
 
   res.json({ message: "Appointment removed" });
 });

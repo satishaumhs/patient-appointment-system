@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 import MonthCalendar from "../components/MonthCalendar";
 import StatCard from "../components/StatCard";
-import { CalendarIcon, CheckCircleIcon, ClockIcon, UsersIcon, LockIcon, BanIcon } from "../components/icons";
+import { CalendarIcon, CheckCircleIcon, ClockIcon, UsersIcon, LockIcon, BanIcon, BellIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -82,6 +82,7 @@ const BLOCK_REASON_LABEL = Object.fromEntries(BLOCK_REASONS.map((r) => [r.value,
 const ManageAvailability = () => {
   const [slots, setSlots] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [waitlist, setWaitlist] = useState([]);
   const [selectedDate, setSelectedDate] = useState(todayKey());
   const [error, setError] = useState("");
 
@@ -103,9 +104,14 @@ const ManageAvailability = () => {
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
   const loadAll = async () => {
-    const [slotsRes, apptRes] = await Promise.all([api.get("/availability/mine"), api.get("/appointments")]);
+    const [slotsRes, apptRes, waitlistRes] = await Promise.all([
+      api.get("/availability/mine"),
+      api.get("/appointments"),
+      api.get("/waitlist/mine"),
+    ]);
     setSlots(slotsRes.data);
     setAppointments(apptRes.data);
+    setWaitlist(waitlistRes.data);
   };
 
   useEffect(() => {
@@ -257,6 +263,26 @@ const ManageAvailability = () => {
         <StatCard icon={ClockIcon} label="Open this week" value={weekStats.open} tint="amber" />
         <StatCard icon={UsersIcon} label="Patients today" value={patientsToday} tint="purple" />
       </div>
+
+      {waitlist.length > 0 && (
+        <div className="bg-violet-50 border border-violet-100 rounded-xl p-4 mb-6 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-sm text-violet-900">
+            <BellIcon className="w-4 h-4 text-violet-600" />
+            <b>{waitlist.length}</b> {waitlist.length === 1 ? "patient is" : "patients are"} waiting for you to open
+            more slots
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {waitlist.slice(0, 5).map((w) => (
+              <span key={w._id} className="text-xs bg-white text-violet-700 border border-violet-200 rounded-full px-2.5 py-1">
+                {w.name}
+              </span>
+            ))}
+            {waitlist.length > 5 && (
+              <span className="text-xs text-violet-600 px-1 py-1">+{waitlist.length - 5} more</span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-5 mb-5">
         <div className="space-y-5">

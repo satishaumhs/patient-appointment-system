@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/axios";
-import { StethoscopeIcon, BriefcaseIcon, GraduationCapIcon, MapPinIcon, StarIcon } from "../components/icons";
+import { StethoscopeIcon, BriefcaseIcon, GraduationCapIcon, MapPinIcon, StarIcon, BellIcon } from "../components/icons";
+
+const inputClass =
+  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600";
 
 const CONSULTATION_LABELS = {
   "in-person": "In-person",
@@ -37,6 +40,30 @@ const DoctorProfile = () => {
   const [hasAvailability, setHasAvailability] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const [waitlistForm, setWaitlistForm] = useState({ name: "", phone: "" });
+  const [waitlistCode, setWaitlistCode] = useState("");
+  const [waitlistError, setWaitlistError] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+
+  const handleWaitlistSubmit = async (e) => {
+    e.preventDefault();
+    setWaitlistError("");
+    setWaitlistSubmitting(true);
+    try {
+      const res = await api.post("/waitlist", {
+        doctorId: id,
+        name: waitlistForm.name.trim(),
+        phone: waitlistForm.phone,
+      });
+      setWaitlistCode(res.data.waitlistCode);
+    } catch (err) {
+      setWaitlistError(err.response?.data?.message || err.response?.data?.errors?.[0]?.msg || "Could not join the waitlist");
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([
@@ -127,13 +154,81 @@ const DoctorProfile = () => {
               <div />
             )}
 
-            <Link
-              to={`/book?doctorId=${doctor._id}`}
-              className="rounded-md bg-teal-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-teal-700"
-            >
-              Book an appointment
-            </Link>
+            {hasAvailability ? (
+              <Link
+                to={`/book?doctorId=${doctor._id}`}
+                className="rounded-md bg-teal-600 text-white px-5 py-2.5 text-sm font-medium hover:bg-teal-700"
+              >
+                Book an appointment
+              </Link>
+            ) : (
+              !waitlistOpen &&
+              !waitlistCode && (
+                <button
+                  type="button"
+                  onClick={() => setWaitlistOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-md border border-teal-600 text-teal-700 px-5 py-2.5 text-sm font-medium hover:bg-teal-50"
+                >
+                  <BellIcon className="w-4 h-4" />
+                  Notify me when open
+                </button>
+              )
+            )}
           </div>
+
+          {!hasAvailability && (waitlistOpen || waitlistCode) && (
+            <div className="pt-5 mt-5 border-t border-gray-100">
+              {waitlistCode ? (
+                <div className="bg-teal-50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-teal-900 mb-1">You're on the waitlist</p>
+                  <p className="text-xs text-teal-700">
+                    We'll note it if a slot opens up. Your code: <b>{waitlistCode}</b> — check back on this page,
+                    it'll show as available the moment a slot opens.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleWaitlistSubmit} className="space-y-3 max-w-sm">
+                  <p className="text-sm font-medium text-gray-900">Get notified when a slot opens</p>
+                  <input
+                    placeholder="Your name"
+                    value={waitlistForm.name}
+                    onChange={(e) => setWaitlistForm({ ...waitlistForm, name: e.target.value })}
+                    required
+                    className={inputClass}
+                  />
+                  <input
+                    placeholder="Mobile number"
+                    type="tel"
+                    inputMode="numeric"
+                    value={waitlistForm.phone}
+                    onChange={(e) =>
+                      setWaitlistForm({ ...waitlistForm, phone: e.target.value.replace(/\D/g, "").slice(0, 10) })
+                    }
+                    maxLength={10}
+                    required
+                    className={inputClass}
+                  />
+                  {waitlistError && <p className="text-xs text-red-600">{waitlistError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setWaitlistOpen(false)}
+                      className="rounded-md border border-gray-300 text-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={waitlistSubmitting || waitlistForm.phone.length !== 10 || !waitlistForm.name.trim()}
+                      className="flex-1 rounded-md bg-teal-600 text-white py-2 text-sm font-medium hover:bg-teal-700 disabled:opacity-50"
+                    >
+                      {waitlistSubmitting ? "Joining..." : "Join waitlist"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
 
           <div className="pt-5 mt-5 border-t border-gray-100">
             <h2 className="text-sm font-semibold text-gray-900 mb-3">
