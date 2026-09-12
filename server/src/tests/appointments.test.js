@@ -268,4 +268,32 @@ describe("Appointments", () => {
       .send({ status: "confirmed" });
     expect(confirm.body.videoLink).toMatch(/^https:\/\/meet\.jit\.si\/MHS-\d{5}-/);
   });
+
+  it("reports queue position as the count of earlier confirmed visits with the same doctor that day", async () => {
+    const doctor = await registerDoctor({ email: "docq@example.com" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-25", startTime: "09:00", endTime: "10:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-25");
+
+    const first = await bookAppointment(slots.body[0]._id, { patientInfo: samplePatientInfo({ phone: "9001110001" }) });
+    const second = await bookAppointment(slots.body[1]._id, { patientInfo: samplePatientInfo({ phone: "9001110002" }) });
+    const third = await bookAppointment(slots.body[2]._id, { patientInfo: samplePatientInfo({ phone: "9001110003" }) });
+
+    for (const created of [first, second, third]) {
+      await request(app)
+        .patch(`/api/appointments/${created.body._id}/status`)
+        .set("Cookie", doctor.cookie)
+        .send({ status: "confirmed" });
+    }
+
+    const lookupThird = await request(app)
+      .post(`/api/appointments/status/${third.body.referenceNumber}`)
+      .send({ phone: "9001110003" });
+    expect(lookupThird.body.queuePosition).toBe(2);
+
+    const lookupFirst = await request(app)
+      .post(`/api/appointments/status/${first.body.referenceNumber}`)
+      .send({ phone: "9001110001" });
+    expect(lookupFirst.body.queuePosition).toBe(0);
+  });
 });

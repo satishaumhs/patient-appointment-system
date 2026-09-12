@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api from "../api/axios";
 import DemoPaymentForm from "../components/DemoPaymentForm";
-import { TicketIcon, PhoneIcon, CalendarIcon, ClockIcon, VideoIcon, StarIcon } from "../components/icons";
+import { TicketIcon, PhoneIcon, CalendarIcon, ClockIcon, VideoIcon, StarIcon, UsersIcon } from "../components/icons";
 
 const inputClass =
   "w-full rounded-md border border-gray-300 pl-10 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -183,6 +183,15 @@ const AppointmentStatus = () => {
             {result.status}
           </span>
 
+          {result.status === "confirmed" && result.queuePosition != null && (
+            <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 bg-violet-50 rounded-full px-2.5 py-1">
+              <UsersIcon className="w-3.5 h-3.5" />
+              {result.queuePosition === 0
+                ? "You're first up that day"
+                : `${result.queuePosition} patient${result.queuePosition === 1 ? "" : "s"} ahead of you that day`}
+            </p>
+          )}
+
           {result.videoLink && (
             <a
               href={result.videoLink}
@@ -245,6 +254,13 @@ const AppointmentStatus = () => {
 
           {result.status === "completed" && (
             <div className="mt-4 pt-4 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="mb-4 w-full rounded-md border border-gray-300 text-gray-700 py-2 text-sm font-medium hover:bg-gray-50"
+              >
+                Download visit summary
+              </button>
               {result.hasReview || reviewDone ? (
                 <p className="text-sm text-gray-500">Thanks for rating your visit!</p>
               ) : (
@@ -285,6 +301,50 @@ const AppointmentStatus = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {result.status === "completed" && (
+            <div className="hidden print:block print-summary p-10">
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">Visit summary</h1>
+              <p className="text-sm text-gray-500 mb-6">My Health School — reference {result.referenceNumber}</p>
+              <table className="w-full text-sm border-collapse">
+                <tbody>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-gray-500 w-40">Patient</td>
+                    <td className="py-2 font-medium text-gray-900">
+                      {result.patientInfo?.name} — {result.patientInfo?.age} yrs, {result.patientInfo?.gender}
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-gray-500">Doctor</td>
+                    <td className="py-2 font-medium text-gray-900">
+                      {result.doctor?.name} · {result.doctor?.specialization || "General Practice"}
+                    </td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-gray-500">Date &amp; time</td>
+                    <td className="py-2 font-medium text-gray-900">{formatWhen(result.date)}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-gray-500">Reason for visit</td>
+                    <td className="py-2 font-medium text-gray-900">{result.reason || "Not specified"}</td>
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-2 pr-4 text-gray-500">Status</td>
+                    <td className="py-2 font-medium text-gray-900 capitalize">{result.status}</td>
+                  </tr>
+                  {result.payment && result.payment.status !== "not_required" && (
+                    <tr className="border-b border-gray-200">
+                      <td className="py-2 pr-4 text-gray-500">Payment</td>
+                      <td className="py-2 font-medium text-gray-900">
+                        ₹{result.payment.amount} — {result.payment.status === "paid" ? "Paid" : "Pending"}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <p className="text-xs text-gray-400 mt-8">Generated from myhealthschool.com/status — not a legal medical record.</p>
             </div>
           )}
         </div>

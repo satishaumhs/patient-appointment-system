@@ -11,6 +11,16 @@ const { notifyWaitlist } = require("./waitlistController");
 
 const TERMINAL_STATUSES = ["completed", "cancelled", "rejected"];
 
+// Every seeded doctor's name already starts with "Dr." (and most real
+// self-registrations follow the same convention) -- prefixing unconditionally
+// produces "Dr. Dr. James Okafor" in notification text. Only add it when it's
+// genuinely missing.
+const doctorLabel = (name) => (name?.startsWith("Dr.") ? name : `Dr. ${name}`);
+
+// Same clinic offset as availabilityController's clinicDayStart/End -- see
+// that file's comment for why this can't be the host process's own timezone.
+const CLINIC_UTC_OFFSET_MINUTES = 330;
+
 const createAppointment = asyncHandler(async (req, res) => {
   const { slotId, reason, appointmentType, patientInfo } = req.body;
 
@@ -66,7 +76,7 @@ const createAppointment = asyncHandler(async (req, res) => {
         audience: "patient",
         event: "request_received",
         title: "Request received",
-        message: `We received your appointment request with Dr. ${doctorUser?.name || "your doctor"}. You'll be notified once it's confirmed.`,
+        message: `We received your appointment request with ${doctorUser?.name ? doctorLabel(doctorUser.name) : "your doctor"}. You'll be notified once it's confirmed.`,
       });
 
       return res.status(201).json(appointment);
@@ -142,17 +152,38 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
       .select("event title message createdAt"),
   ]);
 
+  let queuePosition = null;
+  if (appointment.status === "confirmed") {
+    // "Ahead of you today": other confirmed visits with the same doctor,
+    // same IST calendar day, at an earlier time. Day boundaries are
+    // computed via the clinic's UTC offset rather than the host process's
+    // own timezone -- see availabilityController's clinicDayStart/End for
+    // why that distinction matters on this project.
+    const istMoment = new Date(appointment.date.getTime() + CLINIC_UTC_OFFSET_MINUTES * 60000);
+    istMoment.setUTCHours(0, 0, 0, 0);
+    const dayStart = new Date(istMoment.getTime() - CLINIC_UTC_OFFSET_MINUTES * 60000);
+
+    queuePosition = await Appointment.countDocuments({
+      doctor: appointment.doctor._id,
+      status: "confirmed",
+      date: { $gte: dayStart, $lt: appointment.date },
+    });
+  }
+
   res.json({
     referenceNumber: appointment.referenceNumber,
     patientName: appointment.patientInfo.name,
+    patientInfo: appointment.patientInfo,
     doctor: appointment.doctor,
     date: appointment.date,
+    reason: appointment.status === "completed" ? appointment.reason : undefined,
     appointmentType: appointment.appointmentType,
     status: appointment.status,
     videoLink: appointment.status === "confirmed" ? appointment.videoLink : undefined,
     payment: appointment.payment,
     hasReview: Boolean(hasReview),
     timeline,
+    queuePosition,
   });
 });
 
@@ -187,17 +218,17 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
     confirmed: {
       event: "confirmed",
       title: "Appointment confirmed",
-      message: `Your appointment with Dr. ${appointment.doctor.name} on ${appointment.date.toLocaleString()} has been confirmed.`,
+      message: `Your appointment with ${doctorLabel(appointment.doctor.name)} on ${appointment.date.toLocaleString()} has been confirmed.`,
     },
     rejected: {
       event: "rejected",
       title: "Appointment declined",
-      message: `Your appointment request with Dr. ${appointment.doctor.name} couldn't be accommodated. Please book another time.`,
+      message: `Your appointment request with ${doctorLabel(appointment.doctor.name)} couldn't be accommodated. Please book another time.`,
     },
     completed: {
       event: "completed",
       title: "Visit completed",
-      message: `Your visit with Dr. ${appointment.doctor.name} is complete. Thanks for choosing My Health School.`,
+      message: `Your visit with ${doctorLabel(appointment.doctor.name)} is complete. Thanks for choosing My Health School.`,
     },
   };
 
@@ -271,7 +302,7 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
     audience: "patient",
     event: "rescheduled",
     title: "Appointment rescheduled",
-    message: `Your appointment with Dr. ${appointment.doctor.name} has been rescheduled to ${appointment.date.toLocaleString()}.`,
+    message: `Your appointment with ${doctorLabel(appointment.doctor.name)} has been rescheduled to ${appointment.date.toLocaleString()}.`,
   });
 
   res.json(appointment);
