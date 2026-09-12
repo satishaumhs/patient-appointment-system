@@ -21,6 +21,7 @@ const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -37,10 +38,14 @@ const AdminUsers = () => {
     setSearchParams(role ? { role } : {});
   };
 
-  const filteredUsers = useMemo(
-    () => (roleFilter ? users.filter((u) => u.role === roleFilter) : users),
-    [users, roleFilter]
-  );
+  const filteredUsers = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return users.filter((u) => {
+      const matchesRole = !roleFilter || u.role === roleFilter;
+      const matchesSearch = !term || u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term);
+      return matchesRole && matchesSearch;
+    });
+  }, [users, roleFilter, search]);
 
   const counts = useMemo(() => {
     const c = { doctor: 0, admin: 0 };
@@ -76,6 +81,14 @@ const AdminUsers = () => {
       </Link>
       <h1 className="text-2xl font-semibold text-gray-900 mb-6">Manage users</h1>
 
+      <input
+        type="text"
+        placeholder="Search by name or email..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full rounded-md border border-gray-300 px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-teal-600"
+      />
+
       <div className="flex flex-wrap gap-2 mb-5">
         {TABS.map((tab) => (
           <button
@@ -98,7 +111,9 @@ const AdminUsers = () => {
       {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
 
       {filteredUsers.length === 0 ? (
-        <p className="text-sm text-gray-500">No users in this category.</p>
+        <p className="text-sm text-gray-500">
+          {search ? "No users match your search." : "No users in this category."}
+        </p>
       ) : (
         <div className="space-y-2">
           {filteredUsers.map((u) => (
