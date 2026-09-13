@@ -16,6 +16,7 @@ const User = require("../src/models/User");
 const Availability = require("../src/models/Availability");
 const Appointment = require("../src/models/Appointment");
 const generateReferenceNumber = require("../src/utils/generateReferenceNumber");
+const generateVideoLink = require("../src/utils/generateVideoLink");
 const notify = require("../src/utils/notify");
 
 const DOCTORS = [
@@ -129,6 +130,116 @@ const DOCTORS = [
     qualification: "MBBS, MS (Ophthalmology)",
     consultationFee: 600,
   },
+  {
+    name: "Dr. Marcus Webb",
+    email: "marcus.webb@myhealthschool-demo.com",
+    specialization: "Neurologist",
+    location: "Neuro Care Center, Philadelphia, PA",
+    consultationType: "video",
+    bio: "Diagnoses and treats disorders of the brain, spine, and nervous system.",
+    experience: 16,
+    qualification: "MBBS, DM (Neurology)",
+    consultationFee: 900,
+  },
+  {
+    name: "Dr. Elena Petrova",
+    email: "elena.petrova@myhealthschool-demo.com",
+    specialization: "Urologist",
+    location: "Riverside Urology Clinic, Phoenix, AZ",
+    consultationType: "in-person",
+    bio: "Treats conditions of the urinary tract and male reproductive system.",
+    experience: 12,
+    qualification: "MBBS, MCh (Urology)",
+    consultationFee: 750,
+  },
+  {
+    name: "Dr. Samuel Osei",
+    email: "samuel.osei@myhealthschool-demo.com",
+    specialization: "Pulmonologist",
+    location: "Clearbreath Lung Center, Atlanta, GA",
+    consultationType: "both",
+    bio: "Specializes in respiratory conditions including asthma and COPD.",
+    experience: 10,
+    qualification: "MBBS, MD (Pulmonology)",
+    consultationFee: 700,
+  },
+  {
+    name: "Dr. Hana Kobayashi",
+    email: "hana.kobayashi@myhealthschool-demo.com",
+    specialization: "Gastroenterologist",
+    location: "Golden Gate Digestive Health, San Francisco, CA",
+    consultationType: "in-person",
+    bio: "Manages digestive system disorders from acid reflux to IBD.",
+    experience: 14,
+    qualification: "MBBS, DM (Gastroenterology)",
+    consultationFee: 800,
+  },
+  {
+    name: "Dr. Carlos Mendoza",
+    email: "carlos.mendoza@myhealthschool-demo.com",
+    specialization: "Rheumatologist",
+    location: "Sunbelt Joint & Autoimmune Clinic, San Antonio, TX",
+    consultationType: "video",
+    bio: "Treats arthritis and other autoimmune joint conditions.",
+    experience: 9,
+    qualification: "MBBS, MD (Rheumatology)",
+    consultationFee: 700,
+  },
+  {
+    name: "Dr. Meera Iyer",
+    email: "meera.iyer@myhealthschool-demo.com",
+    specialization: "Nephrologist",
+    location: "Riverbend Kidney Care, Charlotte, NC",
+    consultationType: "both",
+    bio: "Specializes in kidney health and chronic kidney disease management.",
+    experience: 13,
+    qualification: "MBBS, DM (Nephrology)",
+    consultationFee: 750,
+  },
+  {
+    name: "Dr. Benjamin Cole",
+    email: "benjamin.cole@myhealthschool-demo.com",
+    specialization: "Oncologist",
+    location: "Hopewell Cancer Center, Minneapolis, MN",
+    consultationType: "in-person",
+    bio: "Provides compassionate, evidence-based cancer care and treatment planning.",
+    experience: 18,
+    qualification: "MBBS, DM (Oncology)",
+    consultationFee: 1000,
+  },
+  {
+    name: "Dr. Layla Haddad",
+    email: "layla.haddad@myhealthschool-demo.com",
+    specialization: "Allergist/Immunologist",
+    location: "Clearwater Allergy & Asthma Center, Tampa, FL",
+    consultationType: "video",
+    bio: "Diagnoses and manages allergies, asthma, and immune disorders.",
+    experience: 8,
+    qualification: "MBBS, MD (Immunology)",
+    consultationFee: 600,
+  },
+  {
+    name: "Dr. Victor Alaniz",
+    email: "victor.alaniz@myhealthschool-demo.com",
+    specialization: "General Surgeon",
+    location: "Summit Surgical Associates, Salt Lake City, UT",
+    consultationType: "in-person",
+    bio: "Performs a wide range of general and laparoscopic surgical procedures.",
+    experience: 20,
+    qualification: "MBBS, MS (General Surgery)",
+    consultationFee: 900,
+  },
+  {
+    name: "Dr. Naomi Adeyemi",
+    email: "naomi.adeyemi@myhealthschool-demo.com",
+    specialization: "Dentist",
+    location: "Bright Smile Dental Studio, Portland, OR",
+    consultationType: "in-person",
+    bio: "Provides general and cosmetic dental care for the whole family.",
+    experience: 7,
+    qualification: "BDS, MDS",
+    consultationFee: 450,
+  },
 ];
 
 // Not Users -- there's no patient login anymore. This is just the embedded
@@ -145,6 +256,16 @@ const PATIENT_INFO_POOL = [
   { name: "Ethan Wright", age: 38, gender: "male", phone: "9876500008", city: "Miami" },
   { name: "Isabella Garcia", age: 27, gender: "female", phone: "9876500009", city: "Houston" },
   { name: "Mason Clarke", age: 60, gender: "male", phone: "9876500010", city: "Los Angeles" },
+  { name: "Chloe Bennett", age: 29, gender: "female", phone: "9876500011", city: "Philadelphia" },
+  { name: "Ryan O'Connell", age: 47, gender: "male", phone: "9876500012", city: "Phoenix" },
+  { name: "Priyanka Desai", age: 33, gender: "female", phone: "9876500013", city: "Atlanta" },
+  { name: "Kenji Watanabe", age: 55, gender: "male", phone: "9876500014", city: "San Francisco" },
+  { name: "Valentina Ruiz", age: 24, gender: "female", phone: "9876500015", city: "San Antonio" },
+  { name: "David Okonkwo", age: 39, gender: "male", phone: "9876500016", city: "Charlotte" },
+  { name: "Grace Lindqvist", age: 63, gender: "female", phone: "9876500017", city: "Minneapolis" },
+  { name: "Omar Farouk", age: 30, gender: "male", phone: "9876500018", city: "Tampa" },
+  { name: "Jasmine Lee", age: 26, gender: "female", phone: "9876500019", city: "Salt Lake City" },
+  { name: "Henry Dubois", age: 44, gender: "male", phone: "9876500020", city: "Portland" },
 ];
 
 // Reason pool per specialization, used to generate realistic (not-identical)
@@ -160,6 +281,16 @@ const REASONS_BY_SPECIALIZATION = {
   Gynecologist: ["Routine gynecological exam", "Prenatal checkup", "Follow-up consultation"],
   Endocrinologist: ["Diabetes management review", "Thyroid function follow-up", "Hormonal imbalance consultation"],
   Ophthalmologist: ["Routine eye exam", "Blurred vision evaluation", "Follow-up after eye treatment"],
+  Neurologist: ["Recurring headache evaluation", "Migraine follow-up", "Numbness and tingling consultation"],
+  Urologist: ["Urinary tract symptoms", "Kidney stone follow-up", "Routine urology checkup"],
+  Pulmonologist: ["Persistent cough evaluation", "Asthma management review", "Breathing difficulty consultation"],
+  Gastroenterologist: ["Acid reflux consultation", "Abdominal pain evaluation", "Digestive health follow-up"],
+  Rheumatologist: ["Joint pain evaluation", "Arthritis management review", "Autoimmune follow-up"],
+  Nephrologist: ["Kidney function review", "Chronic kidney disease follow-up", "Routine nephrology checkup"],
+  Oncologist: ["Follow-up cancer screening", "Treatment planning consultation", "Post-treatment review"],
+  "Allergist/Immunologist": ["Seasonal allergy consultation", "Asthma follow-up", "Food allergy evaluation"],
+  "General Surgeon": ["Pre-surgical consultation", "Post-operative follow-up", "Hernia evaluation"],
+  Dentist: ["Routine dental checkup", "Tooth pain consultation", "Follow-up after dental procedure"],
 };
 
 const STATUS_ROTATION = ["pending", "confirmed", "completed", "cancelled", "rejected"];
@@ -223,21 +354,29 @@ const run = async () => {
   }
   console.log(`Ensured a week of availability slots for ${doctors.length} doctor(s).`);
 
-  // Cross-match every patient to 3 different doctors (offsets 0/3/6 through the
-  // doctor list, wrapping around) so bookings spread realistically across both
-  // sides instead of piling onto a couple of accounts. Statuses rotate through
-  // pending/confirmed/completed/cancelled/rejected for a realistic mix.
-  // Idempotent per re-run: dedupes on (phone, doctor, reason).
+  // Cross-match every patient to 4 different doctors (offsets 0/5/10/15
+  // through the doctor list, wrapping around) so bookings spread realistically
+  // across all 20 doctors instead of piling onto a couple of accounts.
+  // Statuses rotate through pending/confirmed/completed/cancelled/rejected for
+  // a realistic mix. Idempotent per re-run: dedupes on (phone, doctor, reason).
   const bookings = [];
   PATIENT_INFO_POOL.forEach((patientInfo, i) => {
-    [0, 3, 6].forEach((offset, j) => {
+    [0, 5, 10, 15].forEach((offset, j) => {
       const doctor = doctors[(i + offset) % doctors.length];
       const reasons = REASONS_BY_SPECIALIZATION[doctor.specialization] || ["General consultation"];
+      // A "both" doctor's bookings alternate type instead of defaulting to
+      // in-person for everyone -- a video-only doctor's history should never
+      // show an in-person visit, and a both-doctor's should show a mix.
+      const appointmentType =
+        doctor.consultationType === "video" || (doctor.consultationType === "both" && j % 2 === 1)
+          ? "video"
+          : "in-person";
       bookings.push({
         patientInfo,
         doctor,
         reason: reasons[j % reasons.length],
-        status: STATUS_ROTATION[(i * 3 + j) % STATUS_ROTATION.length],
+        status: STATUS_ROTATION[(i * 4 + j) % STATUS_ROTATION.length],
+        appointmentType,
       });
     });
   });
@@ -268,16 +407,25 @@ const run = async () => {
         ? { status: "pending", amount: booking.doctor.consultationFee }
         : { status: "not_required" };
 
+    const referenceNumber = await generateReferenceNumber();
+    // Same rule the real updateAppointmentStatus controller applies -- a
+    // video link only exists once a video appointment is actually confirmed.
+    const videoLink =
+      booking.appointmentType === "video" && ["confirmed", "completed"].includes(booking.status)
+        ? generateVideoLink(referenceNumber)
+        : undefined;
+
     const appointment = await Appointment.create({
       patientInfo: booking.patientInfo,
       doctor: booking.doctor._id,
       slot: slot._id,
       date: slot.startTime,
       reason: booking.reason,
-      appointmentType: "in-person",
-      referenceNumber: await generateReferenceNumber(),
+      appointmentType: booking.appointmentType,
+      referenceNumber,
       status: booking.status,
       payment,
+      videoLink,
     });
 
     // Gives the doctor's new notification bell real demo content, tied 1:1
@@ -301,8 +449,8 @@ const run = async () => {
   }
   console.log(`Ensured ${bookings.length} cross-doctor appointment requests (${created} newly created).`);
 
-  console.log("\nDone. Demo doctor accounts (all use password: " + DEMO_PASSWORD + "):");
-  doctors.forEach((d) => console.log(`  doctor  ${d.email}`));
+  console.log(`\nDone. ${doctors.length} demo doctor accounts (all use password: ${DEMO_PASSWORD}):`);
+  doctors.forEach((d) => console.log(`  ${d.name.padEnd(24)} ${d.specialization.padEnd(24)} ${d.email}`));
   console.log("\nPatients don't have accounts -- appointment requests were seeded with embedded contact info.");
 
   await mongoose.disconnect();
