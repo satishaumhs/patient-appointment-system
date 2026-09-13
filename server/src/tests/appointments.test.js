@@ -524,6 +524,27 @@ describe("Appointments", () => {
     expect(slotAfter.isBooked).toBe(true);
   });
 
+  it("reconciles a still-pending in-person charge on a record that was already completed some other way", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle9@example.com", consultationFee: 450 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-06", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-06");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120011" }),
+    });
+
+    // Simulates data that reached "completed" outside the normal
+    // confirm -> complete transition (e.g. seeded directly in that shape) --
+    // the reconciliation that transition would have applied never ran.
+    await Appointment.findByIdAndUpdate(created.body._id, { status: "completed" });
+
+    const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const fixed = list.body.find((a) => a._id === created.body._id);
+    expect(fixed.status).toBe("completed");
+    expect(fixed.payment.status).toBe("paid");
+    expect(fixed.payment.method).toBe("cash");
+  });
+
   it("does not auto-reconcile payment for a video appointment when auto-completing it", async () => {
     const doctor = await registerDoctor({ email: "doclifecycle6@example.com", consultationType: "video", consultationFee: 500 });
 

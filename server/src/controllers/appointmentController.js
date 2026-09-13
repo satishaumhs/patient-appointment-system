@@ -34,6 +34,21 @@ const releasePaymentOnCancellation = (appointment) => {
   }
 };
 
+// A completed in-person visit that was still "pay at clinic" is assumed paid
+// in cash -- there's no other way the visit could have finished. A video
+// visit is left alone (cash doesn't apply -- see markAppointmentPaid) and an
+// already-resolved payment is left alone too, via the pending check.
+const reconcilePendingCashPayment = (appointment) => {
+  if (appointment.appointmentType !== "video" && appointment.payment.status === "pending") {
+    appointment.payment.status = "paid";
+    appointment.payment.method = "cash";
+    appointment.payment.paidAt = new Date();
+    appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}-${appointment._id
+      .toString()
+      .slice(-4)}`;
+  }
+};
+
 // Nothing in this app runs a background job (unreliable on a low-cost host
 // that can spin down anyway), so a "confirmed" visit whose scheduled slot has
 // come and gone would otherwise just sit there forever looking upcoming, with
@@ -46,21 +61,30 @@ const releasePaymentOnCancellation = (appointment) => {
 // than assuming a no-show; an in-person visit with a still-pending "pay at
 // clinic" charge is reconciled to paid-cash the same way manually completing
 // it already does.
+//
+// Separately -- and this is the part that actually needs to run every time,
+// not just at the moment of transition -- an appointment that is ALREADY
+// "completed" but still shows a pending in-person charge (seeded directly in
+// that shape, or completed before this reconciliation logic existed) gets
+// swept the same way. Without this second pass, a record that never passed
+// through the transition code above stays stuck showing a live "Mark paid"
+// button forever, no matter how long ago its date was.
 const autoCompleteOverdueAppointments = async () => {
   const confirmed = await Appointment.find({ status: "confirmed" }).populate("slot", "endTime");
   const overdue = confirmed.filter((appointment) => appointment.slot?.endTime && appointment.slot.endTime < new Date());
-  if (overdue.length === 0) return;
-
   for (const appointment of overdue) {
     appointment.status = "completed";
-    if (appointment.appointmentType !== "video" && appointment.payment.status === "pending") {
-      appointment.payment.status = "paid";
-      appointment.payment.method = "cash";
-      appointment.payment.paidAt = new Date();
-      appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}-${appointment._id
-        .toString()
-        .slice(-4)}`;
-    }
+    reconcilePendingCashPayment(appointment);
+    await appointment.save();
+  }
+
+  const staleCompleted = await Appointment.find({
+    status: "completed",
+    appointmentType: { $ne: "video" },
+    "payment.status": "pending",
+  });
+  for (const appointment of staleCompleted) {
+    reconcilePendingCashPayment(appointment);
     await appointment.save();
   }
 };
@@ -273,14 +297,8 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
     appointment.videoLink = generateVideoLink(appointment.referenceNumber);
   }
 
-  // A completed in-person visit that was still "pay at clinic" is assumed
-  // paid in cash -- there's no other way the visit could have finished. A
-  // video visit is left alone (cash doesn't apply -- see markAppointmentPaid).
-  if (status === "completed" && appointment.appointmentType !== "video" && appointment.payment.status === "pending") {
-    appointment.payment.status = "paid";
-    appointment.payment.method = "cash";
-    appointment.payment.paidAt = new Date();
-    appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}`;
+  if (status === "completed") {
+    reconcilePendingCashPayment(appointment);
   }
 
   // A cancelled/rejected appointment is never paid for -- release a pending
