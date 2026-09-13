@@ -14,7 +14,7 @@ const Navbar = () => {
   return (
     <nav className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
       <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2 min-w-0">
-        <Logo />
+        <Logo textClassName={`text-lg font-semibold text-gray-900 ${user ? "" : "hidden sm:inline"}`} />
       </Link>
       {user ? (
         <div className="flex items-center gap-3 shrink-0">

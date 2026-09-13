@@ -102,7 +102,7 @@ const DoctorProfile = () => {
   if (error || !doctor) return <div className="text-center text-red-600 text-sm">{error || "Not found"}</div>;
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-br from-teal-50 to-white p-6 pb-5">
           <div className="flex items-start justify-between mb-4">

@@ -117,7 +117,7 @@ const AppointmentStatus = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto">
+    <div className="max-w-md mx-auto px-4 sm:px-6 py-6">
       <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4">
         <ChevronLeftIcon className="w-4 h-4" />
         Back to home

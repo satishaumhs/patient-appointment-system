@@ -114,7 +114,7 @@ const FindDoctor = () => {
   const compareDoctors = compareIds.map((id) => doctors.find((d) => d._id === id)).filter(Boolean);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
       <div className="flex items-start justify-between gap-4 mb-1 flex-wrap">
         <h1 className="text-2xl font-semibold text-gray-900">Find a doctor</h1>
         <div className="flex items-center gap-2">
