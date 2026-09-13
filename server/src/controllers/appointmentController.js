@@ -49,43 +49,80 @@ const reconcilePendingCashPayment = (appointment) => {
   }
 };
 
+// A video consultation has no "at the clinic" moment to fall back on --
+// unlike an in-person visit, cash can never reconcile it (see
+// markAppointmentPaid/reconcilePendingCashPayment), so payment has to happen
+// online, before or during the call, or not at all. Resolving it to
+// "completed" without that would just be trusting a virtual visit happened
+// with no evidence it was even paid for. Frees the slot the same way an
+// explicit cancellation does, since as far as the record shows the visit
+// never properly happened.
+const cancelUnpaidVideoAppointment = async (appointment) => {
+  appointment.status = "cancelled";
+  releasePaymentOnCancellation(appointment);
+  await appointment.save();
+  await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+};
+
 // Nothing in this app runs a background job (unreliable on a low-cost host
-// that can spin down anyway), so a "confirmed" visit whose scheduled slot has
-// come and gone would otherwise just sit there forever looking upcoming, with
-// its payment still shown as manually-markable. Swept lazily at the top of
-// every read path instead: cheap at this app's scale, and guarantees the same
-// correction shows up everywhere (dashboard, admin analytics, patient status
-// lookup) rather than only wherever happens to be visited first. Deliberately
-// resolves to "completed" (not cancelled) -- a doctor already confirmed the
-// visit, so once its time has passed the system assumes it happened rather
-// than assuming a no-show; an in-person visit with a still-pending "pay at
-// clinic" charge is reconciled to paid-cash the same way manually completing
-// it already does.
+// that can spin down anyway), so appointments left dangling past their own
+// date would otherwise just sit there forever looking active, with stale
+// manual actions still showing. Swept lazily at the top of every read path
+// instead: cheap at this app's scale, and guarantees the same correction
+// shows up everywhere (dashboard, admin analytics, patient status lookup)
+// rather than only wherever happens to be visited first. Three passes:
 //
-// Separately -- and this is the part that actually needs to run every time,
-// not just at the moment of transition -- an appointment that is ALREADY
-// "completed" but still shows a pending in-person charge (seeded directly in
-// that shape, or completed before this reconciliation logic existed) gets
-// swept the same way. Without this second pass, a record that never passed
-// through the transition code above stays stuck showing a live "Mark paid"
-// button forever, no matter how long ago its date was.
-const autoCompleteOverdueAppointments = async () => {
+// 1. "confirmed" + slot ended: a doctor already agreed to the visit, so once
+//    its time has passed the system assumes an in-person one happened
+//    (auto-completed, pending cash reconciled) -- except a video visit that
+//    was never paid online, which has no way to confirm it happened at all,
+//    so it's cancelled instead of completed.
+// 2. "pending" + slot ended: the doctor never responded in time, so the
+//    request itself has expired -- cancelled, same as an explicit reject,
+//    releasing/refunding whatever payment state it was in.
+// 3. Records already sitting at "completed" or "confirmed" from before this
+//    reconciliation logic existed (seeded directly in that shape, or
+//    completed under the old rules before video required payment): swept
+//    the same way a newly-overdue one would be, so old data converges to the
+//    current rules instead of staying stuck exactly as it was written.
+const settleOverdueAppointments = async () => {
   const confirmed = await Appointment.find({ status: "confirmed" }).populate("slot", "endTime");
-  const overdue = confirmed.filter((appointment) => appointment.slot?.endTime && appointment.slot.endTime < new Date());
-  for (const appointment of overdue) {
+  const overdueConfirmed = confirmed.filter(
+    (appointment) => appointment.slot?.endTime && appointment.slot.endTime < new Date()
+  );
+  for (const appointment of overdueConfirmed) {
+    if (appointment.appointmentType === "video" && appointment.payment.status === "pending") {
+      await cancelUnpaidVideoAppointment(appointment);
+      continue;
+    }
     appointment.status = "completed";
     reconcilePendingCashPayment(appointment);
     await appointment.save();
   }
 
-  const staleCompleted = await Appointment.find({
-    status: "completed",
-    appointmentType: { $ne: "video" },
-    "payment.status": "pending",
-  });
-  for (const appointment of staleCompleted) {
-    reconcilePendingCashPayment(appointment);
+  const pending = await Appointment.find({ status: "pending" }).populate("slot", "endTime");
+  const overduePending = pending.filter(
+    (appointment) => appointment.slot?.endTime && appointment.slot.endTime < new Date()
+  );
+  for (const appointment of overduePending) {
+    appointment.status = "cancelled";
+    releasePaymentOnCancellation(appointment);
     await appointment.save();
+    await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
+  }
+
+  const staleCompleted = await Appointment.find({ status: "completed" });
+  for (const appointment of staleCompleted) {
+    if (appointment.appointmentType === "video") {
+      if (appointment.payment.status === "pending") {
+        await cancelUnpaidVideoAppointment(appointment);
+      }
+      continue;
+    }
+    if (appointment.payment.status === "pending") {
+      reconcilePendingCashPayment(appointment);
+      await appointment.save();
+    }
   }
 };
 
@@ -164,7 +201,7 @@ const createAppointment = asyncHandler(async (req, res) => {
 });
 
 const getAppointments = asyncHandler(async (req, res) => {
-  await autoCompleteOverdueAppointments();
+  await settleOverdueAppointments();
 
   const filter = {};
 
@@ -185,7 +222,7 @@ const getAppointments = asyncHandler(async (req, res) => {
 });
 
 const getAppointmentById = asyncHandler(async (req, res) => {
-  await autoCompleteOverdueAppointments();
+  await settleOverdueAppointments();
 
   const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
 
@@ -211,7 +248,7 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
   const { referenceNumber } = req.params;
   const { phone } = req.body;
 
-  await autoCompleteOverdueAppointments();
+  await settleOverdueAppointments();
 
   const appointment = await Appointment.findOne({ referenceNumber })
     .populate("doctor", "name specialization")
@@ -291,6 +328,14 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
 
   if (status === "completed" && appointment.date > new Date()) {
     return res.status(400).json({ message: "Cannot mark an appointment complete before its scheduled date" });
+  }
+
+  // A video visit has no cash fallback -- payment has to happen online, so
+  // it can't be considered complete until that's actually settled.
+  if (status === "completed" && appointment.appointmentType === "video" && appointment.payment.status === "pending") {
+    return res
+      .status(400)
+      .json({ message: "This video consultation needs to be paid online before it can be marked complete" });
   }
 
   if (status === "confirmed" && appointment.appointmentType === "video" && !appointment.videoLink) {
@@ -583,5 +628,5 @@ module.exports = {
   submitReview,
   markAppointmentPaid,
   deleteAppointment,
-  autoCompleteOverdueAppointments,
+  settleOverdueAppointments,
 };

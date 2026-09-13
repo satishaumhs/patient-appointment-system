@@ -243,6 +243,7 @@ const BookAppointment = () => {
               <DemoPaymentForm
                 payment={bookingResult.payment}
                 appointmentStatus={bookingResult.status}
+                appointmentType={bookingResult.appointmentType}
                 referenceNumber={bookingResult.referenceNumber}
                 phone={patientForm.phone.trim()}
                 onPaid={(payment) => setBookingResult({ ...bookingResult, payment })}

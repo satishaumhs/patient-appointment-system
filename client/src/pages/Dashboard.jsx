@@ -263,23 +263,28 @@ const Dashboard = () => {
                         <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">
                           Payment pending
                         </span>
-                        {appt.appointmentType !== "video" && (
-                          new Date(appt.date) <= new Date() ? (
-                            <button
-                              onClick={() => markPaid(appt._id)}
-                              title="Record that this patient paid in cash at the clinic"
-                              className="text-xs px-2 py-1 rounded-md border border-teal-600 text-teal-700 hover:bg-teal-50"
-                            >
-                              Mark paid (cash)
-                            </button>
-                          ) : (
-                            <span
-                              title="Cash can only be marked as paid once the appointment date arrives"
-                              className="text-xs text-gray-400"
-                            >
-                              Mark paid (cash) — available on the appointment date
-                            </span>
-                          )
+                        {appt.appointmentType === "video" ? (
+                          <span
+                            title="Cash isn't accepted for a video consultation -- the patient needs to pay online from their status page"
+                            className="text-xs text-gray-400"
+                          >
+                            Payable online only
+                          </span>
+                        ) : new Date(appt.date) <= new Date() ? (
+                          <button
+                            onClick={() => markPaid(appt._id)}
+                            title="Record that this patient paid in cash at the clinic"
+                            className="text-xs px-2 py-1 rounded-md border border-teal-600 text-teal-700 hover:bg-teal-50"
+                          >
+                            Mark paid (cash)
+                          </button>
+                        ) : (
+                          <span
+                            title="Cash can only be marked as paid once the appointment date arrives"
+                            className="text-xs text-gray-400"
+                          >
+                            Mark paid (cash) — available on the appointment date
+                          </span>
                         )}
                       </>
                     )}
@@ -321,14 +326,22 @@ const Dashboard = () => {
                     )}
                     {user.role === "doctor" && appt.status === "confirmed" && (
                       <>
-                        {new Date(appt.date) <= new Date() && (
-                          <button
-                            onClick={() => updateStatus(appt._id, "completed")}
-                            className="text-xs px-2 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700"
-                          >
-                            Mark complete
-                          </button>
-                        )}
+                        {new Date(appt.date) <= new Date() &&
+                          (appt.appointmentType === "video" && appt.payment?.status === "pending" ? (
+                            <span
+                              title="This video consultation needs to be paid online before it can be marked complete"
+                              className="text-xs text-gray-400"
+                            >
+                              Awaiting online payment
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => updateStatus(appt._id, "completed")}
+                              className="text-xs px-2 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700"
+                            >
+                              Mark complete
+                            </button>
+                          ))}
                         <button
                           onClick={() => setReschedulingId(reschedulingId === appt._id ? null : appt._id)}
                           className="text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"

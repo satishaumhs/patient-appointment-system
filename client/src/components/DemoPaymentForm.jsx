@@ -36,7 +36,7 @@ const UPI_ID_PATTERN = /^[\w.-]+@[\w.-]+$/;
 // dropped as you type, same as the digit-only filtering on the other fields.
 const formatUpiId = (value) => value.replace(/[^\w.@-]/g, "").slice(0, 20);
 
-const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, onPaid }) => {
+const DemoPaymentForm = ({ payment, appointmentStatus, appointmentType, referenceNumber, phone, onPaid }) => {
   const [open, setOpen] = useState(false);
   const [method, setMethod] = useState("card");
   const [cardNumber, setCardNumber] = useState("");
@@ -105,7 +105,9 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
       ) : (
         <>
           <p className="text-xs text-amber-700 bg-amber-50 inline-block px-2 py-1 rounded-md mt-1">
-            Payment pending — you can also pay at the clinic
+            {appointmentType === "video"
+              ? "Payment pending — pay online to complete your video consultation"
+              : "Payment pending — you can also pay at the clinic"}
           </p>
           {!open ? (
             <button

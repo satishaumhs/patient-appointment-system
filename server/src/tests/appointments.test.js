@@ -545,7 +545,7 @@ describe("Appointments", () => {
     expect(fixed.payment.method).toBe("cash");
   });
 
-  it("does not auto-reconcile payment for a video appointment when auto-completing it", async () => {
+  it("cancels an overdue video appointment that was never paid online, instead of completing it", async () => {
     const doctor = await registerDoctor({ email: "doclifecycle6@example.com", consultationType: "video", consultationFee: 500 });
 
     await genSlots(doctor.cookie, { date: "2027-02-03", endTime: "09:30" });
@@ -563,8 +563,97 @@ describe("Appointments", () => {
 
     const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
     const settled = list.body.find((a) => a._id === created.body._id);
+    expect(settled.status).toBe("cancelled");
+    expect(settled.payment.status).toBe("not_required");
+
+    const slotAfter = await Availability.findById(slots.body[0]._id);
+    expect(slotAfter.isBooked).toBe(false);
+  });
+
+  it("auto-completes an overdue video appointment that was already paid online", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle10@example.com", consultationType: "video", consultationFee: 500 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-07", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-07");
+    const created = await bookAppointment(slots.body[0]._id, {
+      appointmentType: "video",
+      patientInfo: samplePatientInfo({ phone: "9001120012" }),
+    });
+    await request(app)
+      .post(`/api/appointments/status/${created.body.referenceNumber}/pay`)
+      .send({ phone: "9001120012", method: "upi" });
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    await Availability.findByIdAndUpdate(slots.body[0]._id, { endTime: new Date(Date.now() - 60 * 1000) });
+
+    const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const settled = list.body.find((a) => a._id === created.body._id);
     expect(settled.status).toBe("completed");
-    expect(settled.payment.status).toBe("pending");
+    expect(settled.payment.status).toBe("paid");
+  });
+
+  it("rejects manually marking an unpaid video appointment complete", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle11@example.com", consultationType: "video", consultationFee: 500 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-08", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-08");
+    const created = await bookAppointment(slots.body[0]._id, {
+      appointmentType: "video",
+      patientInfo: samplePatientInfo({ phone: "9001120013" }),
+    });
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 60 * 60 * 1000) });
+
+    const complete = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "completed" });
+    expect(complete.status).toBe(400);
+    expect(complete.body.message).toMatch(/paid online/);
+  });
+
+  it("expires an unanswered pending request once its slot has passed, cancelling it and releasing any payment", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle12@example.com", consultationFee: 300 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-09", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-09");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120014" }),
+    });
+    await Availability.findByIdAndUpdate(slots.body[0]._id, { endTime: new Date(Date.now() - 60 * 1000) });
+
+    const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const expired = list.body.find((a) => a._id === created.body._id);
+    expect(expired.status).toBe("cancelled");
+    expect(expired.payment.status).toBe("not_required");
+
+    const slotAfter = await Availability.findById(slots.body[0]._id);
+    expect(slotAfter.isBooked).toBe(false);
+  });
+
+  it("corrects an already-completed video appointment that was never paid, treating it as cancelled", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle13@example.com", consultationType: "video", consultationFee: 500 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-10", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-10");
+    const created = await bookAppointment(slots.body[0]._id, {
+      appointmentType: "video",
+      patientInfo: samplePatientInfo({ phone: "9001120015" }),
+    });
+
+    // Simulates data that reached "completed" before video required
+    // payment (e.g. seeded directly in that shape).
+    await Appointment.findByIdAndUpdate(created.body._id, { status: "completed" });
+
+    const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const corrected = list.body.find((a) => a._id === created.body._id);
+    expect(corrected.status).toBe("cancelled");
+    expect(corrected.payment.status).toBe("not_required");
   });
 
   it("refunds an already-paid appointment when it's cancelled or rejected", async () => {

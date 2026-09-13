@@ -233,6 +233,7 @@ const AppointmentStatus = () => {
               <DemoPaymentForm
                 payment={result.payment}
                 appointmentStatus={result.status}
+                appointmentType={result.appointmentType}
                 referenceNumber={result.referenceNumber}
                 phone={phone.trim()}
                 onPaid={(payment) => setResult({ ...result, payment })}
