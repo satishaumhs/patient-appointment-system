@@ -1,6 +1,7 @@
 const request = require("supertest");
 const app = require("../app");
 const Appointment = require("../models/Appointment");
+const Availability = require("../models/Availability");
 
 const registerDoctor = async (overrides = {}) => {
   const res = await request(app)
@@ -238,6 +239,11 @@ describe("Appointments", () => {
       .patch(`/api/appointments/${created.body._id}/status`)
       .set("Cookie", doctor.cookie)
       .send({ status: "confirmed" });
+
+    // Completing requires the visit to have actually happened -- push the
+    // stored date into the past the same way real time passing would.
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 60 * 60 * 1000) });
+
     await request(app)
       .patch(`/api/appointments/${created.body._id}/status`)
       .set("Cookie", doctor.cookie)
@@ -373,5 +379,143 @@ describe("Appointments", () => {
       .set("Cookie", doctor.cookie);
     expect(rejected.status).toBe(400);
     expect(rejected.body.message).toMatch(/video consultation/);
+  });
+
+  it("rejects confirming a request whose scheduled time has already passed", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle1@example.com" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-29", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-29");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120001" }),
+    });
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 60 * 60 * 1000) });
+
+    const confirm = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    expect(confirm.status).toBe(400);
+    expect(confirm.body.message).toMatch(/already passed/);
+
+    // Rejecting a stale request is still allowed -- only confirming/
+    // completing are time-gated.
+    const reject = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "rejected" });
+    expect(reject.status).toBe(200);
+  });
+
+  it("rejects marking an appointment complete before its scheduled date", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle2@example.com" });
+
+    await genSlots(doctor.cookie, { date: "2027-01-30", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-30");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120002" }),
+    });
+
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+
+    const tooEarly = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "completed" });
+    expect(tooEarly.status).toBe(400);
+    expect(tooEarly.body.message).toMatch(/before its scheduled date/);
+  });
+
+  it("auto-reconciles a pending pay-at-clinic charge to paid-cash once the visit is marked complete", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle3@example.com", consultationFee: 450 });
+
+    await genSlots(doctor.cookie, { date: "2027-01-31", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-01-31");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120003" }),
+    });
+    expect(created.body.payment).toEqual({ status: "pending", amount: 450 });
+
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 60 * 60 * 1000) });
+
+    const complete = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "completed" });
+    expect(complete.status).toBe(200);
+    expect(complete.body.payment.status).toBe("paid");
+    expect(complete.body.payment.method).toBe("cash");
+  });
+
+  it("clears a pending payment on rejection and on patient self-cancel, and blocks re-changing a terminal status", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle4@example.com", consultationFee: 300 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-01", startTime: "09:00", endTime: "10:00" });
+    const slots = await getSlots(doctor.userId, "2027-02-01");
+
+    const rejectedOne = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120004" }),
+    });
+    const reject = await request(app)
+      .patch(`/api/appointments/${rejectedOne.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "rejected" });
+    expect(reject.body.payment.status).toBe("not_required");
+
+    // A terminal status can't be changed again (e.g. re-confirming a
+    // rejected request via a stray API call).
+    const reConfirm = await request(app)
+      .patch(`/api/appointments/${rejectedOne.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    expect(reConfirm.status).toBe(400);
+    expect(reConfirm.body.message).toMatch(/rejected appointment/);
+
+    const cancelledOne = await bookAppointment(slots.body[1]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120005" }),
+    });
+    const cancel = await request(app)
+      .post(`/api/appointments/status/${cancelledOne.body.referenceNumber}/cancel`)
+      .send({ phone: "9001120005" });
+    expect(cancel.status).toBe(200);
+
+    const lookup = await request(app)
+      .post(`/api/appointments/status/${cancelledOne.body.referenceNumber}`)
+      .send({ phone: "9001120005" });
+    expect(lookup.body.payment.status).toBe("not_required");
+  });
+
+  it("auto-cancels a confirmed appointment whose entire day has passed without ever being completed", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle5@example.com", consultationFee: 350 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-02", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-02");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120006" }),
+    });
+
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+
+    // Simulate the whole scheduled day having passed with no one ever
+    // marking the visit complete -- a forgotten/no-show booking.
+    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) });
+
+    const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const lapsed = list.body.find((a) => a._id === created.body._id);
+    expect(lapsed.status).toBe("cancelled");
+    expect(lapsed.payment.status).toBe("not_required");
+
+    const slotAfter = await Availability.findById(slots.body[0]._id);
+    expect(slotAfter.isBooked).toBe(false);
   });
 });

@@ -282,12 +282,21 @@ const Dashboard = () => {
                     </span>
                     {user.role === "doctor" && appt.status === "pending" && (
                       <>
-                        <button
-                          onClick={() => updateStatus(appt._id, "confirmed")}
-                          className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                        >
-                          Accept
-                        </button>
+                        {new Date(appt.date) >= new Date() ? (
+                          <button
+                            onClick={() => updateStatus(appt._id, "confirmed")}
+                            className="text-xs px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                          >
+                            Accept
+                          </button>
+                        ) : (
+                          <span
+                            title="This request's scheduled time has already passed -- reschedule it or reject it"
+                            className="text-xs text-gray-400"
+                          >
+                            Time passed
+                          </span>
+                        )}
                         <button
                           onClick={() => setReschedulingId(reschedulingId === appt._id ? null : appt._id)}
                           className="text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -304,12 +313,14 @@ const Dashboard = () => {
                     )}
                     {user.role === "doctor" && appt.status === "confirmed" && (
                       <>
-                        <button
-                          onClick={() => updateStatus(appt._id, "completed")}
-                          className="text-xs px-2 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700"
-                        >
-                          Mark complete
-                        </button>
+                        {new Date(appt.date) <= new Date() && (
+                          <button
+                            onClick={() => updateStatus(appt._id, "completed")}
+                            className="text-xs px-2 py-1 rounded-md bg-gray-900 text-white hover:bg-gray-700"
+                          >
+                            Mark complete
+                          </button>
+                        )}
                         <button
                           onClick={() => setReschedulingId(reschedulingId === appt._id ? null : appt._id)}
                           className="text-xs px-2 py-1 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"

@@ -21,6 +21,43 @@ const doctorLabel = (name) => (name?.startsWith("Dr.") ? name : `Dr. ${name}`);
 // that file's comment for why this can't be the host process's own timezone.
 const CLINIC_UTC_OFFSET_MINUTES = 330;
 
+// Nothing in this app runs a background job (unreliable on a low-cost host
+// that can spin down anyway), so a "confirmed" visit whose entire scheduled
+// day has come and gone with no one ever marking it complete would otherwise
+// just sit there looking upcoming forever. Swept lazily at the top of every
+// read path instead: cheap at this app's scale, and guarantees the same
+// correction shows up everywhere (dashboard, admin analytics, patient status
+// lookup) rather than only wherever happens to be visited first.
+const lapseOverdueAppointments = async () => {
+  const istMoment = new Date(Date.now() + CLINIC_UTC_OFFSET_MINUTES * 60000);
+  istMoment.setUTCHours(0, 0, 0, 0);
+  const todayStartUTC = new Date(istMoment.getTime() - CLINIC_UTC_OFFSET_MINUTES * 60000);
+
+  const overdue = await Appointment.find({ status: "confirmed", date: { $lt: todayStartUTC } }).select("slot");
+  if (overdue.length === 0) return;
+
+  await Appointment.updateMany(
+    { _id: { $in: overdue.map((a) => a._id) } },
+    [
+      {
+        $set: {
+          status: "cancelled",
+          // A cancelled visit is never paid for -- clear a still-pending
+          // charge rather than leaving it stuck on an appointment that isn't
+          // happening. Already-paid/not-required entries are left alone.
+          "payment.status": {
+            $cond: [{ $eq: ["$payment.status", "pending"] }, "not_required", "$payment.status"],
+          },
+        },
+      },
+    ],
+    // Mongoose 9 requires this explicit opt-in before it'll accept an array
+    // (aggregation-pipeline update) as the update argument.
+    { updatePipeline: true }
+  );
+  await Availability.updateMany({ _id: { $in: overdue.map((a) => a.slot) } }, { isBooked: false });
+};
+
 const createAppointment = asyncHandler(async (req, res) => {
   const { slotId, reason, appointmentType, patientInfo } = req.body;
 
@@ -96,6 +133,8 @@ const createAppointment = asyncHandler(async (req, res) => {
 });
 
 const getAppointments = asyncHandler(async (req, res) => {
+  await lapseOverdueAppointments();
+
   const filter = {};
 
   if (req.user.role === "doctor") {
@@ -115,6 +154,8 @@ const getAppointments = asyncHandler(async (req, res) => {
 });
 
 const getAppointmentById = asyncHandler(async (req, res) => {
+  await lapseOverdueAppointments();
+
   const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
 
   if (!appointment) {
@@ -138,6 +179,8 @@ const getAppointmentById = asyncHandler(async (req, res) => {
 const getAppointmentByReference = asyncHandler(async (req, res) => {
   const { referenceNumber } = req.params;
   const { phone } = req.body;
+
+  await lapseOverdueAppointments();
 
   const appointment = await Appointment.findOne({ referenceNumber })
     .populate("doctor", "name specialization")
@@ -205,8 +248,41 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
 
   const { status } = req.body;
 
+  if (TERMINAL_STATUSES.includes(appointment.status)) {
+    return res.status(400).json({ message: `Cannot change the status of a ${appointment.status} appointment` });
+  }
+
+  if (status === "confirmed" && appointment.date < new Date()) {
+    return res
+      .status(400)
+      .json({ message: "Cannot confirm an appointment whose scheduled time has already passed" });
+  }
+
+  if (status === "completed" && appointment.date > new Date()) {
+    return res.status(400).json({ message: "Cannot mark an appointment complete before its scheduled date" });
+  }
+
   if (status === "confirmed" && appointment.appointmentType === "video" && !appointment.videoLink) {
     appointment.videoLink = generateVideoLink(appointment.referenceNumber);
+  }
+
+  // A completed in-person visit that was still "pay at clinic" is assumed
+  // paid in cash -- there's no other way the visit could have finished. A
+  // video visit is left alone (cash doesn't apply -- see markAppointmentPaid).
+  if (status === "completed" && appointment.appointmentType !== "video" && appointment.payment.status === "pending") {
+    appointment.payment.status = "paid";
+    appointment.payment.method = "cash";
+    appointment.payment.paidAt = new Date();
+    appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  // A rejected appointment is never paid for -- clear a still-pending charge
+  // rather than leaving a "payment pending" badge on something that isn't
+  // happening. (Patient self-cancel has its own equivalent in
+  // cancelAppointmentByReference; the lapse sweep has its own in
+  // lapseOverdueAppointments.)
+  if (status === "rejected" && appointment.payment.status === "pending") {
+    appointment.payment.status = "not_required";
   }
 
   appointment.status = status;
@@ -329,6 +405,9 @@ const cancelAppointmentByReference = asyncHandler(async (req, res) => {
   }
 
   appointment.status = "cancelled";
+  if (appointment.payment.status === "pending") {
+    appointment.payment.status = "not_required";
+  }
   await appointment.save();
   await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
   await notifyWaitlist(appointment.doctor._id);
@@ -482,4 +561,5 @@ module.exports = {
   submitReview,
   markAppointmentPaid,
   deleteAppointment,
+  lapseOverdueAppointments,
 };
