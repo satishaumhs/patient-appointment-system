@@ -250,6 +250,14 @@ const Dashboard = () => {
                         Paid
                       </span>
                     )}
+                    {appt.payment?.status === "refunded" && (
+                      <span
+                        title="This visit was cancelled after payment -- the amount is owed back to the patient"
+                        className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700"
+                      >
+                        Refunded
+                      </span>
+                    )}
                     {appt.payment?.status === "pending" && (
                       <>
                         <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-50 text-amber-700">

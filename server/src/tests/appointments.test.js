@@ -492,7 +492,7 @@ describe("Appointments", () => {
     expect(lookup.body.payment.status).toBe("not_required");
   });
 
-  it("auto-cancels a confirmed appointment whose entire day has passed without ever being completed", async () => {
+  it("auto-completes a confirmed appointment once its slot has ended, reconciling a pending in-person charge to paid-cash", async () => {
     const doctor = await registerDoctor({ email: "doclifecycle5@example.com", consultationFee: 350 });
 
     await genSlots(doctor.cookie, { date: "2027-02-02", endTime: "09:30" });
@@ -506,16 +506,95 @@ describe("Appointments", () => {
       .set("Cookie", doctor.cookie)
       .send({ status: "confirmed" });
 
-    // Simulate the whole scheduled day having passed with no one ever
-    // marking the visit complete -- a forgotten/no-show booking.
-    await Appointment.findByIdAndUpdate(created.body._id, { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) });
+    // Simulate the slot's scheduled end time having passed with no one ever
+    // marking the visit complete -- a doctor who simply forgot to click it.
+    await Availability.findByIdAndUpdate(slots.body[0]._id, {
+      startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      endTime: new Date(Date.now() - 90 * 60 * 1000),
+    });
 
     const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
-    const lapsed = list.body.find((a) => a._id === created.body._id);
-    expect(lapsed.status).toBe("cancelled");
-    expect(lapsed.payment.status).toBe("not_required");
+    const settled = list.body.find((a) => a._id === created.body._id);
+    expect(settled.status).toBe("completed");
+    expect(settled.payment.status).toBe("paid");
+    expect(settled.payment.method).toBe("cash");
 
+    // The visit happened -- unlike a cancellation, the slot stays booked.
     const slotAfter = await Availability.findById(slots.body[0]._id);
-    expect(slotAfter.isBooked).toBe(false);
+    expect(slotAfter.isBooked).toBe(true);
+  });
+
+  it("does not auto-reconcile payment for a video appointment when auto-completing it", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle6@example.com", consultationType: "video", consultationFee: 500 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-03", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-03");
+    const created = await bookAppointment(slots.body[0]._id, {
+      appointmentType: "video",
+      patientInfo: samplePatientInfo({ phone: "9001120007" }),
+    });
+
+    await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "confirmed" });
+    await Availability.findByIdAndUpdate(slots.body[0]._id, { endTime: new Date(Date.now() - 60 * 1000) });
+
+    const list = await request(app).get("/api/appointments").set("Cookie", doctor.cookie);
+    const settled = list.body.find((a) => a._id === created.body._id);
+    expect(settled.status).toBe("completed");
+    expect(settled.payment.status).toBe("pending");
+  });
+
+  it("refunds an already-paid appointment when it's cancelled or rejected", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle7@example.com", consultationFee: 600 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-04", startTime: "09:00", endTime: "10:00" });
+    const slots = await getSlots(doctor.userId, "2027-02-04");
+
+    // Paid via the demo flow, then self-cancelled by the patient.
+    const paidThenCancelled = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120008" }),
+    });
+    await request(app)
+      .post(`/api/appointments/status/${paidThenCancelled.body.referenceNumber}/pay`)
+      .send({ phone: "9001120008", method: "upi" });
+
+    const cancel = await request(app)
+      .post(`/api/appointments/status/${paidThenCancelled.body.referenceNumber}/cancel`)
+      .send({ phone: "9001120008" });
+    expect(cancel.body.payment.status).toBe("refunded");
+    expect(cancel.body.payment.refundedAt).toBeTruthy();
+
+    // Paid, then the doctor rejects it outright.
+    const paidThenRejected = await bookAppointment(slots.body[1]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120009" }),
+    });
+    await request(app)
+      .post(`/api/appointments/status/${paidThenRejected.body.referenceNumber}/pay`)
+      .send({ phone: "9001120009", method: "card" });
+
+    const reject = await request(app)
+      .patch(`/api/appointments/${paidThenRejected.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "rejected" });
+    expect(reject.body.payment.status).toBe("refunded");
+  });
+
+  it("clears a pending payment when an appointment is cancelled directly via the status endpoint", async () => {
+    const doctor = await registerDoctor({ email: "doclifecycle8@example.com", consultationFee: 250 });
+
+    await genSlots(doctor.cookie, { date: "2027-02-05", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-05");
+    const created = await bookAppointment(slots.body[0]._id, {
+      patientInfo: samplePatientInfo({ phone: "9001120010" }),
+    });
+
+    const cancel = await request(app)
+      .patch(`/api/appointments/${created.body._id}/status`)
+      .set("Cookie", doctor.cookie)
+      .send({ status: "cancelled" });
+    expect(cancel.status).toBe(200);
+    expect(cancel.body.payment.status).toBe("not_required");
   });
 });

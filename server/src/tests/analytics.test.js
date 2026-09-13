@@ -48,8 +48,14 @@ describe("Admin analytics", () => {
       .post(`/api/appointments/status/${booked.body.referenceNumber}/pay`)
       .send({ phone: "9112233440", method: "card" });
 
+    // A second, unpaid booking that gets rejected -- kept separate from the
+    // paid one above so rejecting it (which now refunds a paid appointment,
+    // tested elsewhere) doesn't cancel out the revenue this test is checking.
+    const rejected = await request(app)
+      .post("/api/appointments")
+      .send({ slotId: slots.body[1]._id, patientInfo: { name: "Pat Two", age: 40, gender: "female", phone: "9112233441" } });
     await request(app)
-      .patch(`/api/appointments/${booked.body._id}/status`)
+      .patch(`/api/appointments/${rejected.body._id}/status`)
       .set("Cookie", doctor.cookie)
       .send({ status: "rejected" });
 

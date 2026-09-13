@@ -21,41 +21,48 @@ const doctorLabel = (name) => (name?.startsWith("Dr.") ? name : `Dr. ${name}`);
 // that file's comment for why this can't be the host process's own timezone.
 const CLINIC_UTC_OFFSET_MINUTES = 330;
 
-// Nothing in this app runs a background job (unreliable on a low-cost host
-// that can spin down anyway), so a "confirmed" visit whose entire scheduled
-// day has come and gone with no one ever marking it complete would otherwise
-// just sit there looking upcoming forever. Swept lazily at the top of every
-// read path instead: cheap at this app's scale, and guarantees the same
-// correction shows up everywhere (dashboard, admin analytics, patient status
-// lookup) rather than only wherever happens to be visited first.
-const lapseOverdueAppointments = async () => {
-  const istMoment = new Date(Date.now() + CLINIC_UTC_OFFSET_MINUTES * 60000);
-  istMoment.setUTCHours(0, 0, 0, 0);
-  const todayStartUTC = new Date(istMoment.getTime() - CLINIC_UTC_OFFSET_MINUTES * 60000);
+// A cancelled/rejected visit is never paid for. A charge that was only ever
+// "pending" simply stops being owed; one that was already "paid" needs to be
+// represented as owed BACK, not silently left looking like the clinic kept
+// money for a visit that isn't happening.
+const releasePaymentOnCancellation = (appointment) => {
+  if (appointment.payment.status === "pending") {
+    appointment.payment.status = "not_required";
+  } else if (appointment.payment.status === "paid") {
+    appointment.payment.status = "refunded";
+    appointment.payment.refundedAt = new Date();
+  }
+};
 
-  const overdue = await Appointment.find({ status: "confirmed", date: { $lt: todayStartUTC } }).select("slot");
+// Nothing in this app runs a background job (unreliable on a low-cost host
+// that can spin down anyway), so a "confirmed" visit whose scheduled slot has
+// come and gone would otherwise just sit there forever looking upcoming, with
+// its payment still shown as manually-markable. Swept lazily at the top of
+// every read path instead: cheap at this app's scale, and guarantees the same
+// correction shows up everywhere (dashboard, admin analytics, patient status
+// lookup) rather than only wherever happens to be visited first. Deliberately
+// resolves to "completed" (not cancelled) -- a doctor already confirmed the
+// visit, so once its time has passed the system assumes it happened rather
+// than assuming a no-show; an in-person visit with a still-pending "pay at
+// clinic" charge is reconciled to paid-cash the same way manually completing
+// it already does.
+const autoCompleteOverdueAppointments = async () => {
+  const confirmed = await Appointment.find({ status: "confirmed" }).populate("slot", "endTime");
+  const overdue = confirmed.filter((appointment) => appointment.slot?.endTime && appointment.slot.endTime < new Date());
   if (overdue.length === 0) return;
 
-  await Appointment.updateMany(
-    { _id: { $in: overdue.map((a) => a._id) } },
-    [
-      {
-        $set: {
-          status: "cancelled",
-          // A cancelled visit is never paid for -- clear a still-pending
-          // charge rather than leaving it stuck on an appointment that isn't
-          // happening. Already-paid/not-required entries are left alone.
-          "payment.status": {
-            $cond: [{ $eq: ["$payment.status", "pending"] }, "not_required", "$payment.status"],
-          },
-        },
-      },
-    ],
-    // Mongoose 9 requires this explicit opt-in before it'll accept an array
-    // (aggregation-pipeline update) as the update argument.
-    { updatePipeline: true }
-  );
-  await Availability.updateMany({ _id: { $in: overdue.map((a) => a.slot) } }, { isBooked: false });
+  for (const appointment of overdue) {
+    appointment.status = "completed";
+    if (appointment.appointmentType !== "video" && appointment.payment.status === "pending") {
+      appointment.payment.status = "paid";
+      appointment.payment.method = "cash";
+      appointment.payment.paidAt = new Date();
+      appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}-${appointment._id
+        .toString()
+        .slice(-4)}`;
+    }
+    await appointment.save();
+  }
 };
 
 const createAppointment = asyncHandler(async (req, res) => {
@@ -133,7 +140,7 @@ const createAppointment = asyncHandler(async (req, res) => {
 });
 
 const getAppointments = asyncHandler(async (req, res) => {
-  await lapseOverdueAppointments();
+  await autoCompleteOverdueAppointments();
 
   const filter = {};
 
@@ -154,7 +161,7 @@ const getAppointments = asyncHandler(async (req, res) => {
 });
 
 const getAppointmentById = asyncHandler(async (req, res) => {
-  await lapseOverdueAppointments();
+  await autoCompleteOverdueAppointments();
 
   const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
 
@@ -180,7 +187,7 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
   const { referenceNumber } = req.params;
   const { phone } = req.body;
 
-  await lapseOverdueAppointments();
+  await autoCompleteOverdueAppointments();
 
   const appointment = await Appointment.findOne({ referenceNumber })
     .populate("doctor", "name specialization")
@@ -276,13 +283,12 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
     appointment.payment.transactionId = `CASH-${Date.now().toString(36).toUpperCase()}`;
   }
 
-  // A rejected appointment is never paid for -- clear a still-pending charge
-  // rather than leaving a "payment pending" badge on something that isn't
-  // happening. (Patient self-cancel has its own equivalent in
-  // cancelAppointmentByReference; the lapse sweep has its own in
-  // lapseOverdueAppointments.)
-  if (status === "rejected" && appointment.payment.status === "pending") {
-    appointment.payment.status = "not_required";
+  // A cancelled/rejected appointment is never paid for -- release a pending
+  // charge, or flag an already-paid one as refunded, rather than leaving a
+  // stale "payment pending"/"paid" on something that isn't happening.
+  // (Patient self-cancel has its own equivalent in cancelAppointmentByReference.)
+  if (["cancelled", "rejected"].includes(status)) {
+    releasePaymentOnCancellation(appointment);
   }
 
   appointment.status = status;
@@ -405,9 +411,7 @@ const cancelAppointmentByReference = asyncHandler(async (req, res) => {
   }
 
   appointment.status = "cancelled";
-  if (appointment.payment.status === "pending") {
-    appointment.payment.status = "not_required";
-  }
+  releasePaymentOnCancellation(appointment);
   await appointment.save();
   await Availability.findByIdAndUpdate(appointment.slot, { isBooked: false });
   await notifyWaitlist(appointment.doctor._id);
@@ -421,7 +425,7 @@ const cancelAppointmentByReference = asyncHandler(async (req, res) => {
     message: `${appointment.patientInfo.name} cancelled their appointment on ${appointment.date.toLocaleString()}.`,
   });
 
-  res.json({ referenceNumber: appointment.referenceNumber, status: appointment.status });
+  res.json({ referenceNumber: appointment.referenceNumber, status: appointment.status, payment: appointment.payment });
 });
 
 // Public: same reference+phone gate. Demo only -- no real payment gateway.
@@ -561,5 +565,5 @@ module.exports = {
   submitReview,
   markAppointmentPaid,
   deleteAppointment,
-  lapseOverdueAppointments,
+  autoCompleteOverdueAppointments,
 };

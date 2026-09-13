@@ -94,6 +94,10 @@ const DemoPaymentForm = ({ payment, appointmentStatus, referenceNumber, phone, o
         <p className="text-xs text-green-700 bg-green-50 inline-block px-2 py-1 rounded-md mt-1">
           Paid (demo) · {payment.transactionId}
         </p>
+      ) : payment.status === "refunded" ? (
+        <p className="text-xs text-blue-700 bg-blue-50 inline-block px-2 py-1 rounded-md mt-1">
+          Refunded (demo) — this visit was cancelled after payment
+        </p>
       ) : !isActive ? (
         <p className="text-xs text-gray-500 bg-gray-50 inline-block px-2 py-1 rounded-md mt-1">
           No payment needed — this appointment was {appointmentStatus}

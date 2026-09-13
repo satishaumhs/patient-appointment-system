@@ -72,12 +72,17 @@ const appointmentSchema = new mongoose.Schema(
     payment: {
       status: {
         type: String,
-        enum: ["not_required", "pending", "paid"],
+        enum: ["not_required", "pending", "paid", "refunded"],
         default: "not_required",
       },
       amount: { type: Number, min: 0 },
       method: { type: String, enum: ["card", "upi", "cash"] },
       paidAt: Date,
+      // Set only when a "paid" appointment is later cancelled/rejected --
+      // demo-only, same as the rest of payment, but the state still needs to
+      // be represented so a cancelled-but-already-paid visit doesn't keep
+      // showing as if the clinic simply kept the money.
+      refundedAt: Date,
       transactionId: { type: String, trim: true },
     },
   },

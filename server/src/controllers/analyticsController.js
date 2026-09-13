@@ -1,6 +1,6 @@
 const asyncHandler = require("../utils/asyncHandler");
 const Appointment = require("../models/Appointment");
-const { lapseOverdueAppointments } = require("./appointmentController");
+const { autoCompleteOverdueAppointments } = require("./appointmentController");
 
 // The organization operates in IST (see availabilityController's own note on
 // this) -- bucketing "busiest hour" without an explicit timezone would use
@@ -9,7 +9,7 @@ const { lapseOverdueAppointments } = require("./appointmentController");
 const CLINIC_TIMEZONE = "+05:30";
 
 const getAdminAnalytics = asyncHandler(async (req, res) => {
-  await lapseOverdueAppointments();
+  await autoCompleteOverdueAppointments();
 
   const [revenueBySpecialization, hourBuckets, statusCounts, totalAppointments] = await Promise.all([
     Appointment.aggregate([

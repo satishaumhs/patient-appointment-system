@@ -89,7 +89,7 @@ const AppointmentStatus = () => {
     setCancelSubmitting(true);
     try {
       const res = await api.post(`/appointments/status/${result.referenceNumber}/cancel`, { phone: phone.trim() });
-      setResult({ ...result, status: res.data.status });
+      setResult({ ...result, status: res.data.status, payment: res.data.payment });
       setCancelConfirming(false);
     } catch (err) {
       setCancelError(err.response?.data?.message || "Could not cancel this appointment");
@@ -361,8 +361,8 @@ const AppointmentStatus = () => {
                   {result.payment && result.payment.status !== "not_required" && (
                     <tr className="border-b border-gray-200">
                       <td className="py-2 pr-4 text-gray-500">Payment</td>
-                      <td className="py-2 font-medium text-gray-900">
-                        ₹{result.payment.amount} — {result.payment.status === "paid" ? "Paid" : "Pending"}
+                      <td className="py-2 font-medium text-gray-900 capitalize">
+                        ₹{result.payment.amount} — {result.payment.status}
                       </td>
                     </tr>
                   )}
