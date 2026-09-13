@@ -99,9 +99,50 @@ const updateMyProfile = asyncHandler(async (req, res) => {
   res.json(user);
 });
 
+// Admin user management. Doctor rows get the same profile fields patients
+// see on the public listing, plus admin-only operational signals (real slot
+// availability and total appointment volume) that have no reason to be
+// exposed on the public endpoint.
 const getUsers = asyncHandler(async (req, res) => {
-  const users = await User.find().select("name email role createdAt").sort({ createdAt: -1 });
-  res.json(users);
+  const users = await User.find()
+    .select(`${DOCTOR_FIELDS} role createdAt`)
+    .sort({ createdAt: -1 });
+
+  const doctorIds = users.filter((u) => u.role === "doctor").map((u) => u._id);
+
+  const [nextAvailableRows, ratingRows, appointmentCountRows] = await Promise.all([
+    Availability.aggregate([
+      { $match: { doctor: { $in: doctorIds }, isBooked: false, startTime: { $gte: new Date() } } },
+      { $group: { _id: "$doctor", nextAvailable: { $min: "$startTime" } } },
+    ]),
+    Review.aggregate([
+      { $match: { doctor: { $in: doctorIds } } },
+      { $group: { _id: "$doctor", averageRating: { $avg: "$rating" }, reviewCount: { $sum: 1 } } },
+    ]),
+    Appointment.aggregate([
+      { $match: { doctor: { $in: doctorIds } } },
+      { $group: { _id: "$doctor", totalAppointments: { $sum: 1 } } },
+    ]),
+  ]);
+
+  const nextAvailableMap = new Map(nextAvailableRows.map((r) => [String(r._id), r.nextAvailable]));
+  const ratingMap = new Map(ratingRows.map((r) => [String(r._id), r]));
+  const appointmentCountMap = new Map(appointmentCountRows.map((r) => [String(r._id), r.totalAppointments]));
+
+  const enriched = users.map((user) => {
+    if (user.role !== "doctor") return user.toObject();
+
+    const rating = ratingMap.get(String(user._id));
+    return {
+      ...user.toObject(),
+      nextAvailable: nextAvailableMap.get(String(user._id)) || null,
+      averageRating: rating ? Math.round(rating.averageRating * 10) / 10 : null,
+      reviewCount: rating ? rating.reviewCount : 0,
+      totalAppointments: appointmentCountMap.get(String(user._id)) || 0,
+    };
+  });
+
+  res.json(enriched);
 });
 
 const deleteUser = asyncHandler(async (req, res) => {

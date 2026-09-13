@@ -39,4 +39,32 @@ describe("Admin user management", () => {
     const del = await request(app).delete(`/api/users/${target.userId}`).set("Cookie", admin.cookie);
     expect(del.status).toBe(200);
   });
+
+  it("enriches doctor rows in the admin list with profile and real stats, but leaves admin rows alone", async () => {
+    const doctor = await registerAndGetCookie({
+      email: "enriched@example.com",
+      specialization: "Cardiologist",
+      consultationType: "video",
+      consultationFee: 500,
+    });
+    const admin = await registerAndGetCookie({ email: "admin2@example.com" });
+    await User.findByIdAndUpdate(admin.userId, { role: "admin" });
+
+    await request(app)
+      .post("/api/availability")
+      .set("Cookie", doctor.cookie)
+      .send({ date: "2027-02-01", startTime: "09:00", endTime: "09:30", slotMinutes: 30 });
+
+    const list = await request(app).get("/api/users").set("Cookie", admin.cookie);
+    const doctorRow = list.body.find((u) => u._id === doctor.userId);
+    expect(doctorRow.specialization).toBe("Cardiologist");
+    expect(doctorRow.consultationType).toBe("video");
+    expect(doctorRow.nextAvailable).toBeTruthy();
+    expect(doctorRow.totalAppointments).toBe(0);
+    expect(doctorRow.reviewCount).toBe(0);
+
+    const adminRow = list.body.find((u) => u._id === admin.userId);
+    expect(adminRow.nextAvailable).toBeUndefined();
+    expect(adminRow.totalAppointments).toBeUndefined();
+  });
 });
