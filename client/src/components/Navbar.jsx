@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
@@ -48,6 +49,7 @@ const Navbar = () => {
   const [specialtiesOpen, setSpecialtiesOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState(null);
   const specialtiesRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   const handleLogout = async () => {
     await logout();
@@ -65,20 +67,32 @@ const Navbar = () => {
   // The nav row is horizontally scrollable (overflow-x-auto, for mobile),
   // which -- per CSS's own rules -- also clips vertical overflow, cutting
   // off an absolutely-positioned dropdown even on desktop where the row
-  // never actually scrolls. Fixed positioning (computed here, not CSS
-  // `absolute`) escapes that clipping instead of being contained by it.
+  // never actually scrolls. A portal (rendered straight into document.body,
+  // not fixed-inside-the-row) sidesteps that plus any stacking-context
+  // surprises from ancestors, rather than just outrunning the clip with
+  // `position: fixed` and hoping nothing else gets in the way.
   useEffect(() => {
     if (!specialtiesOpen) return;
+    // `click`, not `mousedown`: a mousedown-based close fires *before* the
+    // browser's click event, so if it ever misjudges a tap inside the
+    // dropdown as "outside" -- exactly the kind of thing that happens on
+    // touch devices, where the DOM can mutate between touchend and the
+    // synthesized click -- it unmounts the link before its own navigation
+    // gets to run, and the tap silently does nothing. Closing on `click`
+    // instead means this only ever runs *after* React Router's own
+    // click-driven navigation has already fired.
     const closeOnOutsideClick = (e) => {
-      if (!specialtiesRef.current?.contains(e.target)) setSpecialtiesOpen(false);
+      if (!specialtiesRef.current?.contains(e.target) && !dropdownRef.current?.contains(e.target)) {
+        setSpecialtiesOpen(false);
+      }
     };
     const closeOnEscape = (e) => {
       if (e.key === "Escape") setSpecialtiesOpen(false);
     };
-    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("click", closeOnOutsideClick);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("click", closeOnOutsideClick);
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [specialtiesOpen]);
@@ -150,23 +164,27 @@ const Navbar = () => {
               Specialties
               <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${specialtiesOpen ? "rotate-180" : ""}`} />
             </button>
-            {specialtiesOpen && dropdownPos && (
-              <div
-                style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left }}
-                className="z-30 w-64 max-h-80 overflow-y-auto bg-white rounded-b-md border border-gray-200 shadow-lg py-1.5"
-              >
-                {SPECIALTIES.map((s) => (
-                  <Link
-                    key={s}
-                    to={`/doctors?specialization=${encodeURIComponent(s)}`}
-                    onClick={() => setSpecialtiesOpen(false)}
-                    className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700"
-                  >
-                    {s}
-                  </Link>
-                ))}
-              </div>
-            )}
+            {specialtiesOpen &&
+              dropdownPos &&
+              createPortal(
+                <div
+                  ref={dropdownRef}
+                  style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left }}
+                  className="z-30 w-64 max-h-80 overflow-y-auto bg-white rounded-b-md border border-gray-200 shadow-lg py-1.5"
+                >
+                  {SPECIALTIES.map((s) => (
+                    <Link
+                      key={s}
+                      to={`/doctors?specialization=${encodeURIComponent(s)}`}
+                      onClick={() => setSpecialtiesOpen(false)}
+                      className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700"
+                    >
+                      {s}
+                    </Link>
+                  ))}
+                </div>,
+                document.body
+              )}
           </div>
 
           <NavLink to="/services" className={navLinkClass}>
