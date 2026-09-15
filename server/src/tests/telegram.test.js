@@ -10,7 +10,7 @@ jest.mock("../utils/telegramBot");
 const request = require("supertest");
 const app = require("../app");
 const User = require("../models/User");
-const { sendTelegramMessage } = require("../utils/telegramBot");
+const { sendTelegramMessage, clearMessageButtons } = require("../utils/telegramBot");
 
 const registerDoctor = async (overrides = {}) => {
   const res = await request(app)
@@ -52,6 +52,8 @@ const sendUpdate = (update, { secret = "test-webhook-secret" } = {}) => {
 };
 
 describe("Telegram integration", () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it("rejects webhook calls with a missing or wrong secret", async () => {
     const noHeader = await sendUpdate({ message: { chat: { id: 1 }, text: "/start bogus" } }, { secret: null });
     expect(noHeader.status).toBe(401);
@@ -103,10 +105,16 @@ describe("Telegram integration", () => {
       });
     });
     const accept = await sendUpdate({
-      callback_query: { id: "cbq1", data: `acc:${booked.body._id}`, message: { chat: { id: chatId } } },
+      callback_query: {
+        id: "cbq1",
+        data: `acc:${booked.body._id}`,
+        message: { chat: { id: chatId }, message_id: 4001 },
+      },
     });
     expect(accept.status).toBe(200);
     expect(await acceptConfirmation).toContain("Test Doctor"); // which doctor this was for, not just that it happened
+    // The original message's buttons come off so it can't be tapped again.
+    expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 4001);
 
     const asDoctor = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
     expect(asDoctor.body.status).toBe("confirmed");
@@ -208,10 +216,16 @@ describe("Telegram integration", () => {
       });
     });
     await sendUpdate({
-      callback_query: { id: "cbq_rs", data: `rs:${booked.body._id}`, message: { chat: { id: chatId } } },
+      callback_query: {
+        id: "cbq_rs",
+        data: `rs:${booked.body._id}`,
+        message: { chat: { id: chatId }, message_id: 5001 },
+      },
     });
     const { text: promptText, keyboard } = await prompt;
     expect(promptText).toContain("Test Doctor");
+    // Tapping Reschedule retires the original request message either way.
+    expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 5001);
 
     const offeredSlotIds = keyboard.flat().map((btn) => btn.callback_data.split(":")[2]);
     expect(offeredSlotIds).toEqual([alternativeSlotId]);
@@ -226,12 +240,14 @@ describe("Telegram integration", () => {
       callback_query: {
         id: "cbq_rt",
         data: `rt:${booked.body._id}:${alternativeSlotId}`,
-        message: { chat: { id: chatId } },
+        message: { chat: { id: chatId }, message_id: 5002 },
       },
     });
     const confirmationText = await confirmation;
     expect(confirmationText).toContain("Rescheduled");
     expect(confirmationText).toContain("Test Doctor");
+    // And the slot-picker message's own buttons come off on success too.
+    expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 5002);
 
     const after = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
     expect(after.body.status).toBe("confirmed");
@@ -241,6 +257,36 @@ describe("Telegram integration", () => {
     // isBooked:false slots, so its reappearance here IS proof it was freed.
     const slotsAfter = await getSlots(doctor.userId, "2027-02-04");
     expect(slotsAfter.body.map((s) => s._id)).toEqual([slots.body[0]._id]);
+  });
+
+  it("leaves the slot-picker buttons tappable when a reschedule pick fails", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc7@example.com" });
+    const chatId = 88802;
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+
+    await genSlots(doctor.cookie, { date: "2027-02-07", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-07");
+    const booked = await bookAppointment(slots.body[0]._id);
+
+    // Picking the appointment's OWN current slot is a guaranteed applyReschedule
+    // error ("already this appointment's scheduled time") without needing to
+    // simulate a real double-booking race.
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rt_fail",
+        data: `rt:${booked.body._id}:${slots.body[0]._id}`,
+        message: { chat: { id: chatId }, message_id: 6001 },
+      },
+    });
+
+    expect(clearMessageButtons).not.toHaveBeenCalled();
+
+    const stillPending = await request(app)
+      .get(`/api/appointments/${booked.body._id}`)
+      .set("Cookie", doctor.cookie);
+    expect(stillPending.body.status).toBe("pending");
   });
 
   it("tells the doctor there's nothing to reschedule into when no other slots are open", async () => {

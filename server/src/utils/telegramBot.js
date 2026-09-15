@@ -28,6 +28,16 @@ const sendTelegramMessage = (chatId, text, inlineKeyboard) =>
 const answerCallbackQuery = (callbackQueryId, text) =>
   callTelegram("answerCallbackQuery", { callback_query_id: callbackQueryId, text });
 
+// Strips the buttons off an already-sent message (empty inline_keyboard) --
+// used once a request has been acted on, so the same stale Accept/
+// Reject/Reschedule buttons can't be tapped again and re-process it.
+const clearMessageButtons = (chatId, messageId) =>
+  callTelegram("editMessageReplyMarkup", {
+    chat_id: chatId,
+    message_id: messageId,
+    reply_markup: { inline_keyboard: [] },
+  });
+
 const registerWebhook = (url, secretToken) => callTelegram("setWebhook", { url, secret_token: secretToken });
 
-module.exports = { sendTelegramMessage, answerCallbackQuery, registerWebhook };
+module.exports = { sendTelegramMessage, answerCallbackQuery, clearMessageButtons, registerWebhook };

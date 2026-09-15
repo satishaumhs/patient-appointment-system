@@ -3,7 +3,7 @@ const asyncHandler = require("../utils/asyncHandler");
 const User = require("../models/User");
 const Appointment = require("../models/Appointment");
 const Availability = require("../models/Availability");
-const { sendTelegramMessage, answerCallbackQuery } = require("../utils/telegramBot");
+const { sendTelegramMessage, answerCallbackQuery, clearMessageButtons } = require("../utils/telegramBot");
 const doctorLabel = require("../utils/doctorLabel");
 const { applyStatusChange, applyReschedule, TERMINAL_STATUSES } = require("./appointmentController");
 
@@ -155,12 +155,17 @@ const handleAcceptReject = async (callbackQuery, chatId, action, appointmentId) 
 
   const result = await applyStatusChange({ appointment, actingUserId: doctor._id, actingUserRole: "doctor", status });
 
+  // Every possible error here (terminal status, scheduled time already
+  // passed) is deterministic -- tapping the same button again can't ever
+  // succeed, so the buttons come off on error too, not just on success.
   if (result.error) {
     await answerCallbackQuery(callbackQuery.id, result.error.message);
+    await clearMessageButtons(chatId, callbackQuery.message.message_id);
     return;
   }
 
   await answerCallbackQuery(callbackQuery.id, status === "confirmed" ? "Accepted" : "Rejected");
+  await clearMessageButtons(chatId, callbackQuery.message.message_id);
   await sendTelegramMessage(
     chatId,
     `${status === "confirmed" ? "✅ Accepted" : "❌ Rejected"} — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name} on ${appointment.date.toLocaleString()}.`
@@ -182,6 +187,7 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
 
   if (TERMINAL_STATUSES.includes(appointment.status)) {
     await answerCallbackQuery(callbackQuery.id, `Cannot reschedule a ${appointment.status} appointment`);
+    await clearMessageButtons(chatId, callbackQuery.message.message_id);
     return;
   }
 
@@ -194,6 +200,10 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
     .limit(MAX_RESCHEDULE_OPTIONS);
 
   await answerCallbackQuery(callbackQuery.id, "Pick a new time");
+  // Tapping Reschedule commits to that sub-flow either way (slots found or
+  // not) -- the original Accept/Reject/Reschedule buttons shouldn't still
+  // be tappable once the doctor has moved past that decision.
+  await clearMessageButtons(chatId, callbackQuery.message.message_id);
 
   if (openSlots.length === 0) {
     await sendTelegramMessage(
@@ -232,11 +242,15 @@ const handleRescheduleConfirm = async (callbackQuery, chatId, appointmentId, slo
   });
 
   if (result.error) {
+    // Unlike accept/reject, this can be a transient race (someone else took
+    // the slot) -- leave the other options on this message tappable instead
+    // of stripping the whole list over one failed pick.
     await answerCallbackQuery(callbackQuery.id, result.error.message);
     return;
   }
 
   await answerCallbackQuery(callbackQuery.id, "Rescheduled");
+  await clearMessageButtons(chatId, callbackQuery.message.message_id);
   await sendTelegramMessage(
     chatId,
     `🔄 Rescheduled — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name}'s appointment is now on ${result.appointment.date.toLocaleString()}.`
