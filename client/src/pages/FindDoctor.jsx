@@ -53,6 +53,19 @@ const FindDoctor = () => {
     });
   }, []);
 
+  // useState(searchParams.get(...)) above only reads the URL once, at
+  // mount. Navigating here again with a different ?specialization= (e.g.
+  // picking another specialty from the nav dropdown while already on this
+  // page) matches the same route, so React Router updates the URL without
+  // remounting the component -- the initial-value read never re-runs, and
+  // the dropdown and results silently stay on the old specialty. Watching
+  // searchParams re-syncs on every such navigation; it doesn't fight the
+  // dropdown's own local onChange, since picking a specialty by hand here
+  // never touches the URL in the first place.
+  useEffect(() => {
+    setSpecialization(searchParams.get("specialization") || "");
+  }, [searchParams]);
+
   const toggleFavorite = (id) => {
     setFavorites((prev) => {
       const next = new Set(prev);
