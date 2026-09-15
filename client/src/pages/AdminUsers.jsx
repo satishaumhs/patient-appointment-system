@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import {
@@ -10,6 +10,8 @@ import {
   CalendarIcon,
   StarIcon,
   VideoIcon,
+  SendIcon,
+  CheckCircleIcon,
 } from "../components/icons";
 
 const ROLE_STYLES = {
@@ -46,6 +48,8 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [connectingId, setConnectingId] = useState(null);
+  const pollRef = useRef(null);
 
   const load = async () => {
     setLoading(true);
@@ -56,7 +60,41 @@ const AdminUsers = () => {
 
   useEffect(() => {
     load();
+    return () => clearInterval(pollRef.current);
   }, []);
+
+  const stopConnecting = () => {
+    clearInterval(pollRef.current);
+    pollRef.current = null;
+    setConnectingId(null);
+  };
+
+  // Connecting is still a real Telegram tap by whoever opens this link --
+  // there's no way to skip that -- this just removes the need to log out
+  // and back in as each doctor to reach the same button on their own
+  // profile. See getConnectLinkForDoctor in telegramController.js.
+  const connectTelegram = async (doctor) => {
+    setError("");
+    try {
+      const res = await api.get(`/telegram/connect-link/${doctor._id}`);
+      window.open(res.data.url, "_blank", "noopener");
+      setConnectingId(doctor._id);
+
+      let attempts = 0;
+      clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        attempts += 1;
+        const fresh = await api.get("/users").then((r) => r.data);
+        setUsers(fresh);
+        const target = fresh.find((u) => u._id === doctor._id);
+        if (target?.telegramConnected || attempts >= 40) {
+          stopConnecting();
+        }
+      }, 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not create a connect link");
+    }
+  };
 
   const setRoleFilter = (role) => {
     setSearchParams(role ? { role } : {});
@@ -186,6 +224,29 @@ const AdminUsers = () => {
                       <StarIcon className="w-3 h-3" fill="currentColor" />
                       {u.averageRating} ({u.reviewCount})
                     </span>
+                  )}
+                  {u.telegramConnected ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-sky-50 text-sky-700">
+                      <CheckCircleIcon className="w-3 h-3" />
+                      Telegram connected
+                    </span>
+                  ) : connectingId === u._id ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                      Waiting for Telegram Start...
+                      <button type="button" onClick={stopConnecting} className="underline hover:text-gray-700">
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => connectTelegram(u)}
+                      className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full border border-sky-200 text-sky-700 hover:bg-sky-50"
+                    >
+                      <SendIcon className="w-3 h-3" />
+                      Connect Telegram
+                    </button>
                   )}
                 </div>
 

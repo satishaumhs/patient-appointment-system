@@ -35,20 +35,38 @@ const RESCHEDULE_OPTIONS_PER_ROW = 2;
 // disconnects the doctor as a side effect of e.g. flipping a notification
 // preference. A targeted dot-path update never reads or rewrites sibling
 // fields, so it can't lose one it never touched.
-const getConnectLink = asyncHandler(async (req, res) => {
+const issueConnectLink = async (doctorId) => {
   const rawToken = crypto.randomBytes(32).toString("hex");
 
-  await User.findByIdAndUpdate(req.user._id, {
+  await User.findByIdAndUpdate(doctorId, {
     $set: {
       "telegram.pendingConnectToken": crypto.createHash("sha256").update(rawToken).digest("hex"),
       "telegram.pendingConnectExpires": new Date(Date.now() + CONNECT_TOKEN_TTL_MS),
     },
   });
 
-  res.json({
+  return {
     url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?start=${rawToken}`,
     expiresInMinutes: CONNECT_TOKEN_TTL_MS / 60000,
-  });
+  };
+};
+
+const getConnectLink = asyncHandler(async (req, res) => {
+  res.json(await issueConnectLink(req.user._id));
+});
+
+// Admin-only: connecting is still a real Telegram tap by whoever holds the
+// phone the link is opened on -- there's no way around that, and no bulk
+// "connect everyone" that skips it. This just removes the friction of
+// logging in and out as each doctor individually to reach the same button
+// every doctor already has on their own My Profile page.
+const getConnectLinkForDoctor = asyncHandler(async (req, res) => {
+  const doctor = await User.findOne({ _id: req.params.doctorId, role: "doctor" }).select("name");
+  if (!doctor) {
+    return res.status(404).json({ message: "Doctor not found" });
+  }
+
+  res.json({ ...(await issueConnectLink(doctor._id)), doctorName: doctor.name });
 });
 
 const getStatus = asyncHandler(async (req, res) => {
@@ -311,4 +329,4 @@ const handleWebhook = asyncHandler(async (req, res) => {
   res.sendStatus(200);
 });
 
-module.exports = { getConnectLink, getStatus, disconnect, updatePreferences, handleWebhook };
+module.exports = { getConnectLink, getConnectLinkForDoctor, getStatus, disconnect, updatePreferences, handleWebhook };

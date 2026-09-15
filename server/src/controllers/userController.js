@@ -104,8 +104,11 @@ const updateMyProfile = asyncHandler(async (req, res) => {
 // availability and total appointment volume) that have no reason to be
 // exposed on the public endpoint.
 const getUsers = asyncHandler(async (req, res) => {
+  // +telegram.chatId is select:false (it's effectively a credential -- see
+  // User.js) -- only ever surfaced here as the boolean telegramConnected
+  // below, never the raw id itself.
   const users = await User.find()
-    .select(`${DOCTOR_FIELDS} role createdAt`)
+    .select(`${DOCTOR_FIELDS} role createdAt +telegram.chatId`)
     .sort({ createdAt: -1 });
 
   const doctorIds = users.filter((u) => u.role === "doctor").map((u) => u._id);
@@ -133,12 +136,14 @@ const getUsers = asyncHandler(async (req, res) => {
     if (user.role !== "doctor") return user.toObject();
 
     const rating = ratingMap.get(String(user._id));
+    const { telegram, ...rest } = user.toObject();
     return {
-      ...user.toObject(),
+      ...rest,
       nextAvailable: nextAvailableMap.get(String(user._id)) || null,
       averageRating: rating ? Math.round(rating.averageRating * 10) / 10 : null,
       reviewCount: rating ? rating.reviewCount : 0,
       totalAppointments: appointmentCountMap.get(String(user._id)) || 0,
+      telegramConnected: Boolean(telegram?.chatId),
     };
   });
 

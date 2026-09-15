@@ -396,4 +396,46 @@ describe("Telegram integration", () => {
     expect(afterA.body.status).toBe("rejected");
     expect(afterB.body.status).toBe("confirmed");
   });
+
+  it("lets an admin generate a doctor's connect link without that doctor's own session", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc9@example.com", name: "Dr. Admin Target" });
+    const admin = await registerDoctor({ email: "tgadmin@example.com" });
+    await User.findByIdAndUpdate(admin.userId, { role: "admin" });
+
+    const res = await request(app)
+      .get(`/api/telegram/connect-link/${doctor.userId}`)
+      .set("Cookie", admin.cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.doctorName).toBe("Dr. Admin Target");
+    expect(res.body.url).toBe(`https://t.me/TestBot?start=${rawTokenFromLink(res.body.url)}`);
+
+    // And the generated token actually links the doctor, same as their own
+    // self-service link would -- this isn't a look-alike, separate mechanism.
+    await sendUpdate({ message: { chat: { id: 44001 }, text: `/start ${rawTokenFromLink(res.body.url)}` } });
+    const status = await request(app).get("/api/telegram/status").set("Cookie", doctor.cookie);
+    expect(status.body.connected).toBe(true);
+  });
+
+  it("rejects a non-admin generating another doctor's connect link", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc10@example.com" });
+    const otherDoctor = await registerDoctor({ email: "tgdoc11@example.com" });
+
+    const res = await request(app)
+      .get(`/api/telegram/connect-link/${doctor.userId}`)
+      .set("Cookie", otherDoctor.cookie);
+
+    expect(res.status).toBe(403);
+  });
+
+  it("404s an admin connect-link request for a non-doctor id", async () => {
+    const admin = await registerDoctor({ email: "tgadmin2@example.com" });
+    await User.findByIdAndUpdate(admin.userId, { role: "admin" });
+
+    const res = await request(app)
+      .get("/api/telegram/connect-link/aaaaaaaaaaaaaaaaaaaaaaaa")
+      .set("Cookie", admin.cookie);
+
+    expect(res.status).toBe(404);
+  });
 });
