@@ -14,7 +14,6 @@ import AppointmentStatus from "./pages/AppointmentStatus";
 import ManageAvailability from "./pages/ManageAvailability";
 import AdminUsers from "./pages/AdminUsers";
 import AdminAnalytics from "./pages/AdminAnalytics";
-import Landing from "./pages/Landing";
 import FindDoctor from "./pages/FindDoctor";
 import DoctorProfile from "./pages/DoctorProfile";
 
@@ -24,7 +23,7 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route element={<PublicLayout />}>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<BookAppointment />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
