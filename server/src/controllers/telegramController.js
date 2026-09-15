@@ -124,13 +124,20 @@ const STATUS_BY_ACTION = { acc: "confirmed", rej: "rejected" };
 // linked doctor, load the appointment the button refers to, and confirm
 // that appointment is actually this doctor's -- the one check that stops a
 // stale or tampered callback_data from acting on someone else's request.
+//
+// One chat can be linked to more than one doctor account (e.g. a front desk
+// managing several doctors), so this has to check every doctor linked to
+// the chat for a match, not just whichever one findOne happens to return
+// first -- that was returning an arbitrary doctor and failing the ownership
+// check even when the right one really was connected.
 const findLinkedDoctorAndAppointment = async (chatId, appointmentId) => {
-  const doctor = await User.findOne({ "telegram.chatId": chatId }).select("+telegram.chatId");
-  const appointment = doctor && (await Appointment.findById(appointmentId).populate("doctor", "name email"));
+  const appointment = await Appointment.findById(appointmentId).populate("doctor", "name email");
+  if (!appointment) return {};
 
-  if (!doctor || !appointment || !appointment.doctor._id.equals(doctor._id)) {
-    return {};
-  }
+  const linkedDoctors = await User.find({ "telegram.chatId": chatId }).select("+telegram.chatId");
+  const doctor = linkedDoctors.find((d) => d._id.equals(appointment.doctor._id));
+
+  if (!doctor) return {};
   return { doctor, appointment };
 };
 

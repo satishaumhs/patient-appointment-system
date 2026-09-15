@@ -263,4 +263,38 @@ describe("Telegram integration", () => {
     expect(stillPending.body.status).toBe("pending");
     expect(stillPending.body.slot).toBe(slots.body[0]._id);
   });
+
+  it("resolves the right doctor when two doctors share the same Telegram chat", async () => {
+    const chatId = 55990;
+    const doctorA = await registerDoctor({ email: "tgshared-a@example.com", name: "Dr. Shared A" });
+    const doctorB = await registerDoctor({ email: "tgshared-b@example.com", name: "Dr. Shared B" });
+
+    for (const doctor of [doctorA, doctorB]) {
+      const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+      await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+    }
+
+    await genSlots(doctorA.cookie, { date: "2027-02-06", endTime: "09:30" });
+    const slotsA = await getSlots(doctorA.userId, "2027-02-06");
+    const bookedA = await bookAppointment(slotsA.body[0]._id);
+
+    await genSlots(doctorB.cookie, { date: "2027-02-06", endTime: "09:30" });
+    const slotsB = await getSlots(doctorB.userId, "2027-02-06");
+    const bookedB = await bookAppointment(slotsB.body[0]._id);
+
+    // Whichever doctor findOne/find happens to return "first" internally
+    // must not matter -- accepting B's appointment must land on B, and
+    // rejecting A's must land on A, from the exact same chat.
+    await sendUpdate({
+      callback_query: { id: "cbq_b", data: `acc:${bookedB.body._id}`, message: { chat: { id: chatId } } },
+    });
+    await sendUpdate({
+      callback_query: { id: "cbq_a", data: `rej:${bookedA.body._id}`, message: { chat: { id: chatId } } },
+    });
+
+    const afterA = await request(app).get(`/api/appointments/${bookedA.body._id}`).set("Cookie", doctorA.cookie);
+    const afterB = await request(app).get(`/api/appointments/${bookedB.body._id}`).set("Cookie", doctorB.cookie);
+    expect(afterA.body.status).toBe("rejected");
+    expect(afterB.body.status).toBe("confirmed");
+  });
 });
