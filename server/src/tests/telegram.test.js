@@ -1,9 +1,16 @@
 process.env.TELEGRAM_WEBHOOK_SECRET = "test-webhook-secret";
 process.env.TELEGRAM_BOT_USERNAME = "TestBot";
 
+// notify.js's own NODE_ENV==="test" short-circuit inside telegramBot.js
+// never exposes what text a message would have carried -- which is exactly
+// how a "Dr. undefined" bug shipped without a failing test. Mocking the
+// module directly makes the actual message content assertable.
+jest.mock("../utils/telegramBot");
+
 const request = require("supertest");
 const app = require("../app");
 const User = require("../models/User");
+const { sendTelegramMessage } = require("../utils/telegramBot");
 
 const registerDoctor = async (overrides = {}) => {
   const res = await request(app)
@@ -144,5 +151,32 @@ describe("Telegram integration", () => {
 
     const status = await request(app).get("/api/telegram/status").set("Cookie", doctor.cookie);
     expect(status.body.connected).toBe(false);
+  });
+
+  it("includes the doctor's real name in the Telegram message text, not just the in-app notice", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc4@example.com", name: "Dr. Asha Rao" });
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    await sendUpdate({ message: { chat: { id: 777 }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+
+    await genSlots(doctor.cookie, { date: "2027-02-03", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-03");
+
+    // notify() fires the Telegram send without awaiting it (by design -- see
+    // notify.js), so booking's own response resolves before that send
+    // necessarily has. Resolve on the mock actually being called instead of
+    // guessing at a delay.
+    const notified = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((chatId, text) => {
+        resolve(text);
+        return Promise.resolve({ ok: true });
+      });
+    });
+
+    await bookAppointment(slots.body[0]._id);
+
+    const text = await notified;
+    expect(text).toContain("Dr. Asha Rao");
+    expect(text).not.toContain("undefined");
   });
 });

@@ -18,7 +18,12 @@ const sendDoctorTelegramNotice = async ({ appointment, doctor, event, title, mes
   const config = DOCTOR_EVENT_CONFIG[event];
   if (!config) return;
 
-  const doctorUser = await User.findById(doctor).select(`+telegram.chatId telegram.${config.preference}`);
+  // Only chatId needs the "+" treatment -- the preference booleans aren't
+  // select:false, so they (and everything else, like name) already come
+  // back by default. Naming a bare field here would flip Mongoose into
+  // inclusion-only mode and silently drop every field not explicitly named
+  // (that's exactly how `name` went missing and produced "Dr. undefined").
+  const doctorUser = await User.findById(doctor).select("+telegram.chatId");
   if (!doctorUser?.telegram?.chatId || doctorUser.telegram[config.preference] === false) return;
 
   const inlineKeyboard = config.actionable
