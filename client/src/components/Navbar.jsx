@@ -13,9 +13,19 @@ const Navbar = () => {
 
   return (
     <nav className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-200 bg-white">
-      <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2 min-w-0">
-        <Logo textClassName={`text-lg font-semibold text-gray-900 ${user ? "" : "hidden sm:inline"}`} />
-      </Link>
+      {user ? (
+        <Link to="/dashboard" className="flex items-center gap-2 min-w-0">
+          <Logo textClassName="text-lg font-semibold text-gray-900" />
+        </Link>
+      ) : (
+        // A plain anchor, not <Link> -- "/" and "/book" render the same
+        // BookAppointment page, so a SPA navigation to "/" while already on
+        // it is a same-URL no-op that leaves any filled-in state sitting
+        // there. A real navigation always lands on a clean page.
+        <a href="/" className="flex items-center gap-2 min-w-0">
+          <Logo textClassName="text-lg font-semibold text-gray-900 hidden sm:inline" />
+        </a>
+      )}
       {user ? (
         <div className="flex items-center gap-3 shrink-0">
           <span className="hidden sm:inline text-sm text-gray-600 truncate max-w-[160px]">

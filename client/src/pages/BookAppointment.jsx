@@ -14,6 +14,7 @@ import {
   TicketIcon,
   CheckCircleIcon,
   VideoIcon,
+  ChevronLeftIcon,
 } from "../components/icons";
 
 const inputClass =
@@ -156,6 +157,31 @@ const BookAppointment = () => {
     setSlotId("");
   };
 
+  // "/" and "/book" both render this same page, so there's no separate home
+  // screen to link back to -- this is what "back to home" means here: wipe
+  // everything and return to a blank form, whether from mid-booking or from
+  // the confirmation screen.
+  const resetAll = () => {
+    handleChangeDoctor();
+    setSpecialization("");
+    setPatientForm({ name: "", age: "", gender: "", phone: "", email: "", city: "" });
+    setTouched({});
+    setReason("");
+    setAppointmentType("in-person");
+    setError("");
+    setBookingResult(null);
+  };
+
+  const hasProgress = Boolean(
+    doctorId ||
+      patientForm.name ||
+      patientForm.phone ||
+      patientForm.age ||
+      patientForm.gender ||
+      patientForm.email ||
+      patientForm.city
+  );
+
   const canSubmit = patientDetailsValid && doctorId && slotId && !submitting;
 
   const handleConfirm = async (e) => {
@@ -232,9 +258,15 @@ const BookAppointment = () => {
             Save this reference number — you'll need it, along with your phone number, to check your appointment
             status later.
           </p>
-          <Link to="/status" className="text-sm font-medium text-teal-700 hover:underline">
-            Check appointment status
-          </Link>
+          <div className="flex items-center justify-center gap-4 text-sm font-medium">
+            <Link to="/status" className="text-teal-700 hover:underline">
+              Check appointment status
+            </Link>
+            <span className="text-gray-300">·</span>
+            <button type="button" onClick={resetAll} className="text-teal-700 hover:underline">
+              Book another appointment
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -243,6 +275,16 @@ const BookAppointment = () => {
   return (
     <div className="bg-stone-50">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-10 text-center">
+        {hasProgress && (
+          <button
+            type="button"
+            onClick={resetAll}
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-teal-700 mb-4"
+          >
+            <ChevronLeftIcon className="w-4 h-4" />
+            Start over
+          </button>
+        )}
         <h1 className="text-2xl sm:text-3xl font-extrabold text-teal-950">
           Book a doctor's appointment <span className="text-teal-700">right here.</span>
         </h1>
