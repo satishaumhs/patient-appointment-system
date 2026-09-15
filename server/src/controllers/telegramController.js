@@ -163,7 +163,7 @@ const handleAcceptReject = async (callbackQuery, chatId, action, appointmentId) 
   await answerCallbackQuery(callbackQuery.id, status === "confirmed" ? "Accepted" : "Rejected");
   await sendTelegramMessage(
     chatId,
-    `${status === "confirmed" ? "✅ Accepted" : "❌ Rejected"}: ${appointment.patientInfo.name} on ${appointment.date.toLocaleString()}.`
+    `${status === "confirmed" ? "✅ Accepted" : "❌ Rejected"} — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name} on ${appointment.date.toLocaleString()}.`
   );
 };
 
@@ -198,7 +198,7 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
   if (openSlots.length === 0) {
     await sendTelegramMessage(
       chatId,
-      "You have no other open slots to reschedule into right now -- open more availability in the app first."
+      `${doctorLabel(appointment.doctor.name)} has no other open slots to reschedule into right now -- open more availability in the app first.`
     );
     return;
   }
@@ -207,7 +207,11 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
     { text: slot.startTime.toLocaleString(), callback_data: `rt:${appointmentId}:${slot._id}` },
   ]);
 
-  await sendTelegramMessage(chatId, `Pick a new time for ${appointment.patientInfo.name}'s appointment:`, keyboard);
+  await sendTelegramMessage(
+    chatId,
+    `Pick a new time for ${appointment.patientInfo.name}'s appointment with ${doctorLabel(appointment.doctor.name)}:`,
+    keyboard
+  );
 };
 
 // A tap on one of the slot options from handleReschedulePrompt. Runs
@@ -235,7 +239,7 @@ const handleRescheduleConfirm = async (callbackQuery, chatId, appointmentId, slo
   await answerCallbackQuery(callbackQuery.id, "Rescheduled");
   await sendTelegramMessage(
     chatId,
-    `🔄 Rescheduled: ${appointment.patientInfo.name}'s appointment is now on ${result.appointment.date.toLocaleString()}.`
+    `🔄 Rescheduled — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name}'s appointment is now on ${result.appointment.date.toLocaleString()}.`
   );
 };
 

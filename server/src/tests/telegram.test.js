@@ -96,10 +96,17 @@ describe("Telegram integration", () => {
     const booked = await bookAppointment(slots.body[0]._id);
     expect(booked.status).toBe(201);
 
+    const acceptConfirmation = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text) => {
+        resolve(text);
+        return Promise.resolve({ ok: true });
+      });
+    });
     const accept = await sendUpdate({
       callback_query: { id: "cbq1", data: `acc:${booked.body._id}`, message: { chat: { id: chatId } } },
     });
     expect(accept.status).toBe(200);
+    expect(await acceptConfirmation).toContain("Test Doctor"); // which doctor this was for, not just that it happened
 
     const asDoctor = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
     expect(asDoctor.body.status).toBe("confirmed");
@@ -203,7 +210,8 @@ describe("Telegram integration", () => {
     await sendUpdate({
       callback_query: { id: "cbq_rs", data: `rs:${booked.body._id}`, message: { chat: { id: chatId } } },
     });
-    const { keyboard } = await prompt;
+    const { text: promptText, keyboard } = await prompt;
+    expect(promptText).toContain("Test Doctor");
 
     const offeredSlotIds = keyboard.flat().map((btn) => btn.callback_data.split(":")[2]);
     expect(offeredSlotIds).toEqual([alternativeSlotId]);
@@ -223,6 +231,7 @@ describe("Telegram integration", () => {
     });
     const confirmationText = await confirmation;
     expect(confirmationText).toContain("Rescheduled");
+    expect(confirmationText).toContain("Test Doctor");
 
     const after = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
     expect(after.body.status).toBe("confirmed");
