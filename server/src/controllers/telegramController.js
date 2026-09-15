@@ -5,6 +5,7 @@ const Appointment = require("../models/Appointment");
 const Availability = require("../models/Availability");
 const { sendTelegramMessage, answerCallbackQuery, clearMessageButtons } = require("../utils/telegramBot");
 const doctorLabel = require("../utils/doctorLabel");
+const formatClinicDateTime = require("../utils/formatClinicDateTime");
 const { applyStatusChange, applyReschedule, TERMINAL_STATUSES } = require("./appointmentController");
 
 const CONNECT_TOKEN_TTL_MS = 10 * 60 * 1000;
@@ -168,7 +169,7 @@ const handleAcceptReject = async (callbackQuery, chatId, action, appointmentId) 
   await clearMessageButtons(chatId, callbackQuery.message.message_id);
   await sendTelegramMessage(
     chatId,
-    `${status === "confirmed" ? "✅ Accepted" : "❌ Rejected"} — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name} on ${appointment.date.toLocaleString()}.`
+    `${status === "confirmed" ? "✅ Accepted" : "❌ Rejected"} — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name} on ${formatClinicDateTime(appointment.date)}.`
   );
 };
 
@@ -214,7 +215,7 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
   }
 
   const keyboard = openSlots.map((slot) => [
-    { text: slot.startTime.toLocaleString(), callback_data: `rt:${appointmentId}:${slot._id}` },
+    { text: formatClinicDateTime(slot.startTime), callback_data: `rt:${appointmentId}:${slot._id}` },
   ]);
 
   await sendTelegramMessage(
@@ -253,7 +254,7 @@ const handleRescheduleConfirm = async (callbackQuery, chatId, appointmentId, slo
   await clearMessageButtons(chatId, callbackQuery.message.message_id);
   await sendTelegramMessage(
     chatId,
-    `🔄 Rescheduled — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name}'s appointment is now on ${result.appointment.date.toLocaleString()}.`
+    `🔄 Rescheduled — ${doctorLabel(appointment.doctor.name)}: ${appointment.patientInfo.name}'s appointment is now on ${formatClinicDateTime(result.appointment.date)}.`
   );
 };
 

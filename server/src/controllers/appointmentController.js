@@ -8,6 +8,7 @@ const generateReferenceNumber = require("../utils/generateReferenceNumber");
 const generateVideoLink = require("../utils/generateVideoLink");
 const notify = require("../utils/notify");
 const doctorLabel = require("../utils/doctorLabel");
+const formatClinicDateTime = require("../utils/formatClinicDateTime");
 const { notifyWaitlist } = require("./waitlistController");
 
 const TERMINAL_STATUSES = ["completed", "cancelled", "rejected"];
@@ -169,7 +170,7 @@ const createAppointment = asyncHandler(async (req, res) => {
         doctor: slot.doctor,
         event: "new_request",
         title: "New appointment request",
-        message: `${patientInfo.name} requested an appointment on ${appointment.date.toLocaleString()}.`,
+        message: `${patientInfo.name} requested an appointment on ${formatClinicDateTime(appointment.date)}.`,
       });
       await notify({
         appointment,
@@ -361,7 +362,7 @@ const applyStatusChange = async ({ appointment, actingUserId, actingUserRole, st
     confirmed: {
       event: "confirmed",
       title: "Appointment confirmed",
-      message: `Your appointment with ${doctorLabel(appointment.doctor.name)} on ${appointment.date.toLocaleString()} has been confirmed.`,
+      message: `Your appointment with ${doctorLabel(appointment.doctor.name)} on ${formatClinicDateTime(appointment.date)} has been confirmed.`,
     },
     rejected: {
       event: "rejected",
@@ -461,7 +462,7 @@ const applyReschedule = async ({ appointment, actingUserId, actingUserRole, newS
     audience: "patient",
     event: "rescheduled",
     title: "Appointment rescheduled",
-    message: `Your appointment with ${doctorLabel(appointment.doctor.name)} has been rescheduled to ${appointment.date.toLocaleString()}.`,
+    message: `Your appointment with ${doctorLabel(appointment.doctor.name)} has been rescheduled to ${formatClinicDateTime(appointment.date)}.`,
   });
 
   return { appointment };
@@ -518,7 +519,7 @@ const cancelAppointmentByReference = asyncHandler(async (req, res) => {
     doctor: appointment.doctor._id,
     event: "cancelled_by_patient",
     title: "Appointment cancelled",
-    message: `${appointment.patientInfo.name} cancelled their appointment on ${appointment.date.toLocaleString()}.`,
+    message: `${appointment.patientInfo.name} cancelled their appointment on ${formatClinicDateTime(appointment.date)}.`,
   });
 
   res.json({ referenceNumber: appointment.referenceNumber, status: appointment.status, payment: appointment.payment });
