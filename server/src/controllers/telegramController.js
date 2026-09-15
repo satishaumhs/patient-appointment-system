@@ -2,12 +2,14 @@ const crypto = require("crypto");
 const asyncHandler = require("../utils/asyncHandler");
 const User = require("../models/User");
 const Appointment = require("../models/Appointment");
+const Availability = require("../models/Availability");
 const { sendTelegramMessage, answerCallbackQuery } = require("../utils/telegramBot");
 const doctorLabel = require("../utils/doctorLabel");
-const { applyStatusChange } = require("./appointmentController");
+const { applyStatusChange, applyReschedule, TERMINAL_STATUSES } = require("./appointmentController");
 
 const CONNECT_TOKEN_TTL_MS = 10 * 60 * 1000;
 const PREFERENCE_KEYS = ["notifyNewRequest", "notifyStatusChange", "notifyPayment"];
+const MAX_RESCHEDULE_OPTIONS = 8;
 
 // Doctor-only: a fresh one-time link each time it's requested, same
 // hashed-random-token pattern authController.js uses for password resets --
@@ -118,34 +120,33 @@ const handleStart = async (message) => {
 
 const STATUS_BY_ACTION = { acc: "confirmed", rej: "rejected" };
 
+// Shared by every button handler below: resolve the tapping chat to a
+// linked doctor, load the appointment the button refers to, and confirm
+// that appointment is actually this doctor's -- the one check that stops a
+// stale or tampered callback_data from acting on someone else's request.
+const findLinkedDoctorAndAppointment = async (chatId, appointmentId) => {
+  const doctor = await User.findOne({ "telegram.chatId": chatId }).select("+telegram.chatId");
+  const appointment = doctor && (await Appointment.findById(appointmentId).populate("doctor", "name email"));
+
+  if (!doctor || !appointment || !appointment.doctor._id.equals(doctor._id)) {
+    return {};
+  }
+  return { doctor, appointment };
+};
+
 // A tap on an Accept/Reject button. Runs through the exact same
 // applyStatusChange() the REST endpoint uses, so a doctor acting from
 // Telegram can never end up with different rules than acting from the app.
-const handleCallbackQuery = async (callbackQuery) => {
-  const [action, appointmentId] = (callbackQuery.data || "").split(":");
-  const chatId = String(callbackQuery.message?.chat?.id || "");
+const handleAcceptReject = async (callbackQuery, chatId, action, appointmentId) => {
   const status = STATUS_BY_ACTION[action];
+  const { doctor, appointment } = await findLinkedDoctorAndAppointment(chatId, appointmentId);
 
-  if (!status || !appointmentId) {
-    await answerCallbackQuery(callbackQuery.id, "Unrecognized action");
-    return;
-  }
-
-  const doctor = await User.findOne({ "telegram.chatId": chatId }).select("+telegram.chatId");
-  const appointment =
-    doctor && (await Appointment.findById(appointmentId).populate("doctor", "name email"));
-
-  if (!doctor || !appointment || !appointment.doctor._id.equals(doctor._id)) {
+  if (!doctor || !appointment) {
     await answerCallbackQuery(callbackQuery.id, "This request isn't linked to your account");
     return;
   }
 
-  const result = await applyStatusChange({
-    appointment,
-    actingUserId: doctor._id,
-    actingUserRole: "doctor",
-    status,
-  });
+  const result = await applyStatusChange({ appointment, actingUserId: doctor._id, actingUserRole: "doctor", status });
 
   if (result.error) {
     await answerCallbackQuery(callbackQuery.id, result.error.message);
@@ -157,6 +158,94 @@ const handleCallbackQuery = async (callbackQuery) => {
     chatId,
     `${status === "confirmed" ? "✅ Accepted" : "❌ Rejected"}: ${appointment.patientInfo.name} on ${appointment.date.toLocaleString()}.`
   );
+};
+
+// A tap on "Reschedule": offers the doctor's own next open slots as buttons,
+// rather than trying to recreate the app's full calendar picker inside a
+// chat. Each option carries the slot id directly in its callback_data, so
+// picking one is a single round trip instead of a multi-step conversation
+// Telegram has no server-side state to track between taps anyway.
+const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
+  const { doctor, appointment } = await findLinkedDoctorAndAppointment(chatId, appointmentId);
+
+  if (!doctor || !appointment) {
+    await answerCallbackQuery(callbackQuery.id, "This request isn't linked to your account");
+    return;
+  }
+
+  if (TERMINAL_STATUSES.includes(appointment.status)) {
+    await answerCallbackQuery(callbackQuery.id, `Cannot reschedule a ${appointment.status} appointment`);
+    return;
+  }
+
+  const openSlots = await Availability.find({
+    doctor: appointment.doctor._id,
+    isBooked: false,
+    startTime: { $gt: new Date() },
+  })
+    .sort({ startTime: 1 })
+    .limit(MAX_RESCHEDULE_OPTIONS);
+
+  await answerCallbackQuery(callbackQuery.id, "Pick a new time");
+
+  if (openSlots.length === 0) {
+    await sendTelegramMessage(
+      chatId,
+      "You have no other open slots to reschedule into right now -- open more availability in the app first."
+    );
+    return;
+  }
+
+  const keyboard = openSlots.map((slot) => [
+    { text: slot.startTime.toLocaleString(), callback_data: `rt:${appointmentId}:${slot._id}` },
+  ]);
+
+  await sendTelegramMessage(chatId, `Pick a new time for ${appointment.patientInfo.name}'s appointment:`, keyboard);
+};
+
+// A tap on one of the slot options from handleReschedulePrompt. Runs
+// through the same applyReschedule() the REST reschedule endpoint uses.
+const handleRescheduleConfirm = async (callbackQuery, chatId, appointmentId, slotId) => {
+  const { doctor, appointment } = await findLinkedDoctorAndAppointment(chatId, appointmentId);
+
+  if (!doctor || !appointment) {
+    await answerCallbackQuery(callbackQuery.id, "This request isn't linked to your account");
+    return;
+  }
+
+  const result = await applyReschedule({
+    appointment,
+    actingUserId: doctor._id,
+    actingUserRole: "doctor",
+    newSlotId: slotId,
+  });
+
+  if (result.error) {
+    await answerCallbackQuery(callbackQuery.id, result.error.message);
+    return;
+  }
+
+  await answerCallbackQuery(callbackQuery.id, "Rescheduled");
+  await sendTelegramMessage(
+    chatId,
+    `🔄 Rescheduled: ${appointment.patientInfo.name}'s appointment is now on ${result.appointment.date.toLocaleString()}.`
+  );
+};
+
+const handleCallbackQuery = async (callbackQuery) => {
+  const [action, appointmentId, slotId] = (callbackQuery.data || "").split(":");
+  const chatId = String(callbackQuery.message?.chat?.id || "");
+
+  if (!appointmentId) {
+    await answerCallbackQuery(callbackQuery.id, "Unrecognized action");
+    return;
+  }
+
+  if (action === "rs") return handleReschedulePrompt(callbackQuery, chatId, appointmentId);
+  if (action === "rt") return handleRescheduleConfirm(callbackQuery, chatId, appointmentId, slotId);
+  if (action === "acc" || action === "rej") return handleAcceptReject(callbackQuery, chatId, action, appointmentId);
+
+  await answerCallbackQuery(callbackQuery.id, "Unrecognized action");
 };
 
 // Public, secret-header-gated (see verifyTelegramSecret in telegramRoutes.js).

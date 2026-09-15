@@ -32,6 +32,7 @@ const sendDoctorTelegramNotice = async ({ appointment, doctor, event, title, mes
           { text: "✅ Accept", callback_data: `acc:${appointment._id}` },
           { text: "❌ Reject", callback_data: `rej:${appointment._id}` },
         ],
+        [{ text: "🔄 Reschedule", callback_data: `rs:${appointment._id}` }],
       ]
     : undefined;
 

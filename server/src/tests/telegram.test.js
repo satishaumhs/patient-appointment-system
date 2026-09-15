@@ -179,4 +179,88 @@ describe("Telegram integration", () => {
     expect(text).toContain("Dr. Asha Rao");
     expect(text).not.toContain("undefined");
   });
+
+  it("offers the doctor's open slots on Reschedule, and moves the appointment when one is picked", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc5@example.com" });
+    const chatId = 88800;
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+
+    await genSlots(doctor.cookie, { date: "2027-02-04", startTime: "09:00", endTime: "10:00", slotMinutes: 30 });
+    const slots = await getSlots(doctor.userId, "2027-02-04");
+    expect(slots.body.length).toBe(2);
+
+    const booked = await bookAppointment(slots.body[0]._id);
+    const alternativeSlotId = slots.body[1]._id;
+
+    const prompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
+        resolve({ text, keyboard });
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: { id: "cbq_rs", data: `rs:${booked.body._id}`, message: { chat: { id: chatId } } },
+    });
+    const { keyboard } = await prompt;
+
+    const offeredSlotIds = keyboard.flat().map((btn) => btn.callback_data.split(":")[2]);
+    expect(offeredSlotIds).toEqual([alternativeSlotId]);
+
+    const confirmation = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text) => {
+        resolve(text);
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rt",
+        data: `rt:${booked.body._id}:${alternativeSlotId}`,
+        message: { chat: { id: chatId } },
+      },
+    });
+    const confirmationText = await confirmation;
+    expect(confirmationText).toContain("Rescheduled");
+
+    const after = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
+    expect(after.body.status).toBe("confirmed");
+    expect(after.body.slot).toBe(alternativeSlotId);
+
+    // The original slot is bookable again; the endpoint only ever lists
+    // isBooked:false slots, so its reappearance here IS proof it was freed.
+    const slotsAfter = await getSlots(doctor.userId, "2027-02-04");
+    expect(slotsAfter.body.map((s) => s._id)).toEqual([slots.body[0]._id]);
+  });
+
+  it("tells the doctor there's nothing to reschedule into when no other slots are open", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc6@example.com" });
+    const chatId = 88801;
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+
+    await genSlots(doctor.cookie, { date: "2027-02-05", endTime: "09:30" }); // exactly one slot
+    const slots = await getSlots(doctor.userId, "2027-02-05");
+    const booked = await bookAppointment(slots.body[0]._id);
+
+    const prompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text) => {
+        resolve(text);
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: { id: "cbq_rs2", data: `rs:${booked.body._id}`, message: { chat: { id: chatId } } },
+    });
+    const text = await prompt;
+    expect(text).toMatch(/no other open slots/i);
+
+    const stillPending = await request(app)
+      .get(`/api/appointments/${booked.body._id}`)
+      .set("Cookie", doctor.cookie);
+    expect(stillPending.body.status).toBe("pending");
+    expect(stillPending.body.slot).toBe(slots.body[0]._id);
+  });
 });

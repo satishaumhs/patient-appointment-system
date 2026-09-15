@@ -404,25 +404,20 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
   res.json(result.appointment);
 });
 
-const rescheduleAppointment = asyncHandler(async (req, res) => {
-  const { newSlotId } = req.body;
-
-  const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
-  if (!appointment) {
-    return res.status(404).json({ message: "Appointment not found" });
-  }
-
-  const isOwnerDoctor = appointment.doctor._id.equals(req.user._id);
-  if (req.user.role === "doctor" && !isOwnerDoctor) {
-    return res.status(403).json({ message: "Not authorized to reschedule this appointment" });
+// Same split as applyStatusChange/updateAppointmentStatus -- the Telegram
+// reschedule flow needs this exact logic too, not a re-implementation of it.
+const applyReschedule = async ({ appointment, actingUserId, actingUserRole, newSlotId }) => {
+  const isOwnerDoctor = appointment.doctor._id.equals(actingUserId);
+  if (actingUserRole === "doctor" && !isOwnerDoctor) {
+    return { error: { statusCode: 403, message: "Not authorized to reschedule this appointment" } };
   }
 
   if (TERMINAL_STATUSES.includes(appointment.status)) {
-    return res.status(400).json({ message: `Cannot reschedule a ${appointment.status} appointment` });
+    return { error: { statusCode: 400, message: `Cannot reschedule a ${appointment.status} appointment` } };
   }
 
   if (String(newSlotId) === String(appointment.slot)) {
-    return res.status(400).json({ message: "That is already this appointment's scheduled time" });
+    return { error: { statusCode: 400, message: "That is already this appointment's scheduled time" } };
   }
 
   // Same-doctor clause is load-bearing: without it a reschedule could move
@@ -434,13 +429,13 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
   );
 
   if (!newSlot) {
-    return res.status(409).json({ message: "That slot is not available for this doctor" });
+    return { error: { statusCode: 409, message: "That slot is not available for this doctor" } };
   }
 
   if (newSlot.startTime < new Date()) {
     newSlot.isBooked = false;
     await newSlot.save();
-    return res.status(400).json({ message: "Cannot reschedule to a slot in the past" });
+    return { error: { statusCode: 400, message: "Cannot reschedule to a slot in the past" } };
   }
 
   const oldSlotId = appointment.slot;
@@ -469,7 +464,29 @@ const rescheduleAppointment = asyncHandler(async (req, res) => {
     message: `Your appointment with ${doctorLabel(appointment.doctor.name)} has been rescheduled to ${appointment.date.toLocaleString()}.`,
   });
 
-  res.json(appointment);
+  return { appointment };
+};
+
+const rescheduleAppointment = asyncHandler(async (req, res) => {
+  const { newSlotId } = req.body;
+
+  const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  const result = await applyReschedule({
+    appointment,
+    actingUserId: req.user._id,
+    actingUserRole: req.user.role,
+    newSlotId,
+  });
+
+  if (result.error) {
+    return res.status(result.error.statusCode).json({ message: result.error.message });
+  }
+
+  res.json(result.appointment);
 });
 
 // Public: same reference+phone gate as getAppointmentByReference.
@@ -640,10 +657,12 @@ module.exports = {
   updateAppointmentStatus,
   applyStatusChange,
   rescheduleAppointment,
+  applyReschedule,
   cancelAppointmentByReference,
   payAppointmentByReference,
   submitReview,
   markAppointmentPaid,
   deleteAppointment,
   settleOverdueAppointments,
+  TERMINAL_STATUSES,
 };
