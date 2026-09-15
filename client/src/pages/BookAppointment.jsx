@@ -316,21 +316,21 @@ const BookAppointment = () => {
                 {filteredDoctors.length === 0 ? (
                   <p className="text-sm text-gray-500">No doctors in this speciality yet.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2.5 max-h-72 overflow-y-auto pr-1">
+                  <select
+                    value=""
+                    onChange={(e) => handleSelectDoctor(e.target.value)}
+                    className={`${inputClass} sm:max-w-md`}
+                  >
+                    <option value="" disabled>
+                      Select a doctor
+                    </option>
                     {filteredDoctors.map((doctor) => (
-                      <button
-                        key={doctor._id}
-                        type="button"
-                        onClick={() => handleSelectDoctor(doctor._id)}
-                        className="text-left rounded-xl border border-gray-200 bg-white px-4 py-2.5 hover:border-teal-500 hover:shadow-sm transition-all"
-                      >
-                        <p className="text-sm font-semibold text-gray-900">
-                          {doctor.location ? doctor.location.split(",")[0] : doctor.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{doctor.name} &middot; {doctor.specialization}</p>
-                      </button>
+                      <option key={doctor._id} value={doctor._id}>
+                        {doctor.name} — {doctor.specialization}
+                        {doctor.location ? ` (${doctor.location.split(",")[0]})` : ""}
+                      </option>
                     ))}
-                  </div>
+                  </select>
                 )}
               </>
             )}
