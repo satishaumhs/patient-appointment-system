@@ -7,15 +7,10 @@ const User = require("../models/User");
 const generateReferenceNumber = require("../utils/generateReferenceNumber");
 const generateVideoLink = require("../utils/generateVideoLink");
 const notify = require("../utils/notify");
+const doctorLabel = require("../utils/doctorLabel");
 const { notifyWaitlist } = require("./waitlistController");
 
 const TERMINAL_STATUSES = ["completed", "cancelled", "rejected"];
-
-// Every seeded doctor's name already starts with "Dr." (and most real
-// self-registrations follow the same convention) -- prefixing unconditionally
-// produces "Dr. Dr. James Okafor" in notification text. Only add it when it's
-// genuinely missing.
-const doctorLabel = (name) => (name?.startsWith("Dr.") ? name : `Dr. ${name}`);
 
 // Same clinic offset as availabilityController's clinicDayStart/End -- see
 // that file's comment for why this can't be the host process's own timezone.
@@ -651,5 +646,4 @@ module.exports = {
   markAppointmentPaid,
   deleteAppointment,
   settleOverdueAppointments,
-  doctorLabel,
 };

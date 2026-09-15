@@ -1,6 +1,7 @@
 const Notification = require("../models/Notification");
 const User = require("../models/User");
 const { sendTelegramMessage } = require("./telegramBot");
+const doctorLabel = require("./doctorLabel");
 
 // Which doctor preference gates each doctor-audience event, and whether it
 // gets Accept/Reject buttons (only a brand new request has anything to act
@@ -29,7 +30,12 @@ const sendDoctorTelegramNotice = async ({ appointment, doctor, event, title, mes
       ]
     : undefined;
 
-  const result = await sendTelegramMessage(doctorUser.telegram.chatId, `<b>${title}</b>\n${message}`, inlineKeyboard);
+  // The doctor's name goes in the message itself, not just the in-app title
+  // -- one Telegram chat can be linked to more than one doctor account (a
+  // front desk managing several doctors, say), and without it there's no
+  // way to tell which doctor's calendar a given ping is even about.
+  const text = `<b>${title} — ${doctorLabel(doctorUser.name)}</b>\n${message}`;
+  const result = await sendTelegramMessage(doctorUser.telegram.chatId, text, inlineKeyboard);
 
   // Telegram's API answers with 200 + {ok:false} for plenty of real cases
   // (the doctor blocked the bot, deleted the chat) rather than an HTTP

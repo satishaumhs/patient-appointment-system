@@ -3,7 +3,8 @@ const asyncHandler = require("../utils/asyncHandler");
 const User = require("../models/User");
 const Appointment = require("../models/Appointment");
 const { sendTelegramMessage, answerCallbackQuery } = require("../utils/telegramBot");
-const { applyStatusChange, doctorLabel } = require("./appointmentController");
+const doctorLabel = require("../utils/doctorLabel");
+const { applyStatusChange } = require("./appointmentController");
 
 const CONNECT_TOKEN_TTL_MS = 10 * 60 * 1000;
 const PREFERENCE_KEYS = ["notifyNewRequest", "notifyStatusChange", "notifyPayment"];
