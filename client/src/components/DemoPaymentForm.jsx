@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../api/axios";
 import { CreditCardIcon } from "./icons";
+import { VisaMark, MastercardMark } from "./CardBrandLogos";
 
 const plainInputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -122,20 +123,28 @@ const DemoPaymentForm = ({ payment, appointmentStatus, appointmentType, referenc
               <p className="text-xs text-gray-500">
                 Demo payment — no real charge is made. Don't enter real card details.
               </p>
-              <div className="flex gap-3 text-sm">
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name="payMethod"
-                    checked={method === "card"}
-                    onChange={() => setMethod("card")}
-                  />
-                  Card
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" name="payMethod" checked={method === "upi"} onChange={() => setMethod("upi")} />
-                  UPI
-                </label>
+              <div className="flex items-center justify-between">
+                <div className="flex gap-3 text-sm">
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="payMethod"
+                      checked={method === "card"}
+                      onChange={() => setMethod("card")}
+                    />
+                    Card
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input type="radio" name="payMethod" checked={method === "upi"} onChange={() => setMethod("upi")} />
+                    UPI
+                  </label>
+                </div>
+                {method === "card" && (
+                  <div className="flex items-center gap-1.5">
+                    <VisaMark className="h-5" />
+                    <MastercardMark className="h-5" />
+                  </div>
+                )}
               </div>
               {method === "card" ? (
                 <div className="grid grid-cols-2 gap-2">

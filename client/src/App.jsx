@@ -35,6 +35,7 @@ function App() {
             <Route path="/doctors/:id" element={<DoctorProfile />} />
             <Route path="/book" element={<BookAppointment />} />
             <Route path="/status" element={<AppointmentStatus />} />
+            <Route path="/payment" element={<AppointmentStatus />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/services" element={<Services />} />
             <Route path="/contact" element={<ContactUs />} />

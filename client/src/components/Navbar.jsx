@@ -33,7 +33,7 @@ const SPECIALTIES = [
 ];
 
 const UTILITY_LINKS = [
-  { label: "Online Payment", to: "/status", icon: CreditCardIcon },
+  { label: "Online Payment", to: "/payment", icon: CreditCardIcon },
   { label: "Book Appointment", to: "/book", icon: CalendarPlusIcon },
   { label: "Video Consultation", to: "/doctors?type=video", icon: VideoIcon },
 ];

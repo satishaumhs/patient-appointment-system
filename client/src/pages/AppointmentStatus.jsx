@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import DemoPaymentForm from "../components/DemoPaymentForm";
+import { VisaMark, MastercardMark } from "../components/CardBrandLogos";
 import {
   TicketIcon,
   PhoneIcon,
@@ -49,6 +50,12 @@ const StarPicker = ({ value, onChange }) => (
 );
 
 const AppointmentStatus = () => {
+  // "/payment" and "/status" render this same lookup -- payment is always
+  // for a specific existing appointment (the amount comes from that
+  // booking's own fee), so there's no "pick a doctor and pay" flow
+  // separate from this lookup. This just frames the same page for whichever
+  // entry point brought someone here.
+  const isPaymentEntry = useLocation().pathname === "/payment";
   const [referenceNumber, setReferenceNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [result, setResult] = useState(null);
@@ -122,9 +129,21 @@ const AppointmentStatus = () => {
         <ChevronLeftIcon className="w-4 h-4" />
         Back to home
       </Link>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-1">Check appointment status</h1>
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h1 className="text-2xl font-semibold text-gray-900">
+          {isPaymentEntry ? "Pay for your appointment" : "Check appointment status"}
+        </h1>
+        {isPaymentEntry && (
+          <div className="flex items-center gap-1.5 shrink-0 pt-1">
+            <VisaMark className="h-5" />
+            <MastercardMark className="h-5" />
+          </div>
+        )}
+      </div>
       <p className="text-sm text-gray-500 mb-6">
-        Enter the reference number and mobile number you used when booking.
+        {isPaymentEntry
+          ? "Look up your appointment with its reference number and your mobile number to pay what's due."
+          : "Enter the reference number and mobile number you used when booking."}
       </p>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -171,7 +190,7 @@ const AppointmentStatus = () => {
             disabled={submitting}
             className="w-full rounded-md bg-teal-600 text-white py-2.5 font-medium hover:bg-teal-700 disabled:opacity-50"
           >
-            {submitting ? "Checking..." : "Check status"}
+            {submitting ? "Looking up..." : isPaymentEntry ? "Find my appointment" : "Check status"}
           </button>
         </form>
       </div>
