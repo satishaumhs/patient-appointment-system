@@ -16,6 +16,9 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import FindDoctor from "./pages/FindDoctor";
 import DoctorProfile from "./pages/DoctorProfile";
+import AboutUs from "./pages/AboutUs";
+import Services from "./pages/Services";
+import ContactUs from "./pages/ContactUs";
 
 function App() {
   return (
@@ -32,6 +35,9 @@ function App() {
             <Route path="/doctors/:id" element={<DoctorProfile />} />
             <Route path="/book" element={<BookAppointment />} />
             <Route path="/status" element={<AppointmentStatus />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/services" element={<Services />} />
+            <Route path="/contact" element={<ContactUs />} />
           </Route>
 
           <Route element={<AppLayout />}>

@@ -245,3 +245,16 @@ export const SendIcon = (props) => (
     <path d="M21 3L14.5 21l-4-7.5L3 9.5z" />
   </svg>
 );
+
+export const HomeIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M4 11.5L12 4l8 7.5" />
+    <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+  </svg>
+);
+
+export const ChevronDownIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/axios";
 import DoctorCard from "../components/DoctorCard";
 import { HeartIcon, ScaleIcon, XIcon } from "../components/icons";
@@ -33,10 +33,13 @@ const formatNextAvailable = (iso) => {
 };
 
 const FindDoctor = () => {
+  const [searchParams] = useSearchParams();
+  const videoOnly = searchParams.get("type") === "video";
+
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [specialization, setSpecialization] = useState("");
+  const [specialization, setSpecialization] = useState(searchParams.get("specialization") || "");
   const [sortBy, setSortBy] = useState("next-available");
   const [favorites, setFavorites] = useState(loadFavorites);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -92,7 +95,8 @@ const FindDoctor = () => {
         (d.specialization || "").toLowerCase().includes(term);
       const matchesSpecialization = !specialization || d.specialization === specialization;
       const matchesFavorite = !favoritesOnly || favorites.has(d._id);
-      return matchesSearch && matchesSpecialization && matchesFavorite;
+      const matchesVideo = !videoOnly || d.consultationType === "video" || d.consultationType === "both";
+      return matchesSearch && matchesSpecialization && matchesFavorite && matchesVideo;
     });
 
     const sorted = [...matches];
@@ -109,7 +113,7 @@ const FindDoctor = () => {
       sorted.sort((a, b) => a.name.localeCompare(b.name));
     }
     return sorted;
-  }, [doctors, search, specialization, sortBy, favoritesOnly, favorites]);
+  }, [doctors, search, specialization, sortBy, favoritesOnly, favorites, videoOnly]);
 
   const compareDoctors = compareIds.map((id) => doctors.find((d) => d._id === id)).filter(Boolean);
 
@@ -141,7 +145,11 @@ const FindDoctor = () => {
         </div>
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        {compareMode ? `Select up to ${MAX_COMPARE} doctors to compare side by side.` : "Search by specialty, name, or location."}
+        {compareMode
+          ? `Select up to ${MAX_COMPARE} doctors to compare side by side.`
+          : videoOnly
+            ? "Showing doctors who offer video consultations."
+            : "Search by specialty, name, or location."}
       </p>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
