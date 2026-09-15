@@ -5,6 +5,21 @@
 // doctor or patient (in-app notification text, Telegram messages) needs to
 // show clinic-local time regardless of where the server itself is hosted,
 // so this is the one place that conversion should happen.
-const formatClinicDateTime = (date) => date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+const CLINIC_TIMEZONE = "Asia/Kolkata";
+
+const formatClinicDateTime = (date) => date.toLocaleString("en-US", { timeZone: CLINIC_TIMEZONE });
+
+// Compact form for things like a Telegram slot-picker button label, where
+// full precision (year, seconds) is just noise -- "Sep 16, 9:00 AM".
+const formatClinicDateTimeShort = (date) =>
+  date.toLocaleString("en-US", {
+    timeZone: CLINIC_TIMEZONE,
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 
 module.exports = formatClinicDateTime;
+module.exports.short = formatClinicDateTimeShort;

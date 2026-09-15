@@ -10,7 +10,15 @@ const { applyStatusChange, applyReschedule, TERMINAL_STATUSES } = require("./app
 
 const CONNECT_TOKEN_TTL_MS = 10 * 60 * 1000;
 const PREFERENCE_KEYS = ["notifyNewRequest", "notifyStatusChange", "notifyPayment"];
-const MAX_RESCHEDULE_OPTIONS = 8;
+// "All the available options" bounded by a window that's actually meaningful
+// for a reschedule (a slot two months out is rarely what anyone wants here)
+// rather than an arbitrary small count. RESCHEDULE_OPTIONS_SAFETY_CAP is a
+// backstop, not the normal control -- it only bites for a doctor with an
+// unusually dense open schedule, so a single message can't blow past
+// Telegram's own button-count ceiling.
+const RESCHEDULE_WINDOW_DAYS = 30;
+const RESCHEDULE_OPTIONS_SAFETY_CAP = 60;
+const RESCHEDULE_OPTIONS_PER_ROW = 2;
 
 // Doctor-only: a fresh one-time link each time it's requested, same
 // hashed-random-token pattern authController.js uses for password resets --
@@ -192,13 +200,14 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
     return;
   }
 
+  const windowEnd = new Date(Date.now() + RESCHEDULE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   const openSlots = await Availability.find({
     doctor: appointment.doctor._id,
     isBooked: false,
-    startTime: { $gt: new Date() },
+    startTime: { $gt: new Date(), $lte: windowEnd },
   })
     .sort({ startTime: 1 })
-    .limit(MAX_RESCHEDULE_OPTIONS);
+    .limit(RESCHEDULE_OPTIONS_SAFETY_CAP + 1); // +1 just to detect truncation, not to offer it
 
   await answerCallbackQuery(callbackQuery.id, "Pick a new time");
   // Tapping Reschedule commits to that sub-flow either way (slots found or
@@ -209,20 +218,25 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
   if (openSlots.length === 0) {
     await sendTelegramMessage(
       chatId,
-      `${doctorLabel(appointment.doctor.name)} has no other open slots to reschedule into right now -- open more availability in the app first.`
+      `${doctorLabel(appointment.doctor.name)} has no other open slots in the next ${RESCHEDULE_WINDOW_DAYS} days to reschedule into -- open more availability in the app first.`
     );
     return;
   }
 
-  const keyboard = openSlots.map((slot) => [
-    { text: formatClinicDateTime(slot.startTime), callback_data: `rt:${appointmentId}:${slot._id}` },
-  ]);
+  const truncated = openSlots.length > RESCHEDULE_OPTIONS_SAFETY_CAP;
+  const offeredSlots = truncated ? openSlots.slice(0, RESCHEDULE_OPTIONS_SAFETY_CAP) : openSlots;
 
-  await sendTelegramMessage(
-    chatId,
-    `Pick a new time for ${appointment.patientInfo.name}'s appointment with ${doctorLabel(appointment.doctor.name)}:`,
-    keyboard
-  );
+  const buttons = offeredSlots.map((slot) => ({
+    text: formatClinicDateTime.short(slot.startTime),
+    callback_data: `rt:${appointmentId}:${slot._id}`,
+  }));
+  const keyboard = [];
+  for (let i = 0; i < buttons.length; i += RESCHEDULE_OPTIONS_PER_ROW) {
+    keyboard.push(buttons.slice(i, i + RESCHEDULE_OPTIONS_PER_ROW));
+  }
+
+  const intro = `Pick a new time for ${appointment.patientInfo.name}'s appointment with ${doctorLabel(appointment.doctor.name)} (next ${RESCHEDULE_WINDOW_DAYS} days${truncated ? `, showing the first ${RESCHEDULE_OPTIONS_SAFETY_CAP}` : ""}):`;
+  await sendTelegramMessage(chatId, intro, keyboard);
 };
 
 // A tap on one of the slot options from handleReschedulePrompt. Runs

@@ -45,6 +45,13 @@ const bookAppointment = (slotId, overrides = {}) =>
 
 const rawTokenFromLink = (url) => new URL(url).searchParams.get("start");
 
+// handleReschedulePrompt only offers slots within its own near-term window
+// (see RESCHEDULE_WINDOW_DAYS in telegramController.js), so reschedule tests
+// need a real near-future date rather than the fixed far-future placeholder
+// dates ("2027-...") the rest of this suite uses just to guarantee "not in
+// the past" regardless of when the tests happen to run.
+const daysFromNow = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
 const sendUpdate = (update, { secret = "test-webhook-secret" } = {}) => {
   const req = request(app).post("/api/telegram/webhook");
   if (secret !== null) req.set("x-telegram-bot-api-secret-token", secret);
@@ -202,8 +209,9 @@ describe("Telegram integration", () => {
     const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
     await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
 
-    await genSlots(doctor.cookie, { date: "2027-02-04", startTime: "09:00", endTime: "10:00", slotMinutes: 30 });
-    const slots = await getSlots(doctor.userId, "2027-02-04");
+    const targetDate = daysFromNow(5);
+    await genSlots(doctor.cookie, { date: targetDate, startTime: "09:00", endTime: "10:00", slotMinutes: 30 });
+    const slots = await getSlots(doctor.userId, targetDate);
     expect(slots.body.length).toBe(2);
 
     const booked = await bookAppointment(slots.body[0]._id);
@@ -255,7 +263,7 @@ describe("Telegram integration", () => {
 
     // The original slot is bookable again; the endpoint only ever lists
     // isBooked:false slots, so its reappearance here IS proof it was freed.
-    const slotsAfter = await getSlots(doctor.userId, "2027-02-04");
+    const slotsAfter = await getSlots(doctor.userId, targetDate);
     expect(slotsAfter.body.map((s) => s._id)).toEqual([slots.body[0]._id]);
   });
 
@@ -289,6 +297,41 @@ describe("Telegram integration", () => {
     expect(stillPending.body.status).toBe("pending");
   });
 
+  it("lays out reschedule options two per row with compact labels", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc8@example.com" });
+    const chatId = 88803;
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+
+    // 4 slots total, 1 gets booked -- leaves 3 alternatives, enough to prove
+    // the 2-per-row chunking (rows of [2, 1], not one slot per row).
+    const targetDate = daysFromNow(7);
+    await genSlots(doctor.cookie, { date: targetDate, startTime: "09:00", endTime: "11:00", slotMinutes: 30 });
+    const slots = await getSlots(doctor.userId, targetDate);
+    expect(slots.body.length).toBe(4);
+    const booked = await bookAppointment(slots.body[0]._id);
+
+    const prompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
+        resolve(keyboard);
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rs_layout",
+        data: `rs:${booked.body._id}`,
+        message: { chat: { id: chatId }, message_id: 7001 },
+      },
+    });
+    const keyboard = await prompt;
+
+    expect(keyboard.map((row) => row.length)).toEqual([2, 1]);
+    // Compact label -- "Sep 16, 9:00 AM", not the full "9/16/2026, 9:00:00 AM".
+    expect(keyboard[0][0].text).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/);
+  });
+
   it("tells the doctor there's nothing to reschedule into when no other slots are open", async () => {
     const doctor = await registerDoctor({ email: "tgdoc6@example.com" });
     const chatId = 88801;
@@ -296,8 +339,9 @@ describe("Telegram integration", () => {
     const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
     await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
 
-    await genSlots(doctor.cookie, { date: "2027-02-05", endTime: "09:30" }); // exactly one slot
-    const slots = await getSlots(doctor.userId, "2027-02-05");
+    const targetDate = daysFromNow(6);
+    await genSlots(doctor.cookie, { date: targetDate, endTime: "09:30" }); // exactly one slot
+    const slots = await getSlots(doctor.userId, targetDate);
     const booked = await bookAppointment(slots.body[0]._id);
 
     const prompt = new Promise((resolve) => {
