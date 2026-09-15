@@ -10,6 +10,7 @@ const availabilityRoutes = require("./routes/availabilityRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const waitlistRoutes = require("./routes/waitlistRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const telegramRoutes = require("./routes/telegramRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const { authLimiter } = require("./middleware/rateLimiters");
 
@@ -32,6 +33,7 @@ app.use("/api/availability", availabilityRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/waitlist", waitlistRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/telegram", telegramRoutes);
 
 app.get("/", (req, res) => {
   res.send("Patient Appointment Management API is running");

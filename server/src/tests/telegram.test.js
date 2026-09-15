@@ -1,0 +1,148 @@
+process.env.TELEGRAM_WEBHOOK_SECRET = "test-webhook-secret";
+process.env.TELEGRAM_BOT_USERNAME = "TestBot";
+
+const request = require("supertest");
+const app = require("../app");
+const User = require("../models/User");
+
+const registerDoctor = async (overrides = {}) => {
+  const res = await request(app)
+    .post("/api/auth/register")
+    .send({
+      name: "Test Doctor",
+      email: "test@example.com",
+      password: "password123",
+      specialization: "General Physician",
+      ...overrides,
+    });
+  return { cookie: res.headers["set-cookie"], userId: res.body.user.id };
+};
+
+const genSlots = (doctorCookie, { date, startTime = "09:00", endTime = "10:00", slotMinutes = 30 }) =>
+  request(app)
+    .post("/api/availability")
+    .set("Cookie", doctorCookie)
+    .send({ date, startTime, endTime, slotMinutes });
+
+const getSlots = (doctorId, date) => request(app).get(`/api/availability/${doctorId}?date=${date}`);
+
+const bookAppointment = (slotId, overrides = {}) =>
+  request(app)
+    .post("/api/appointments")
+    .send({
+      slotId,
+      reason: "Checkup",
+      patientInfo: { name: "Pat Test", age: 30, gender: "female", phone: "9998887770" },
+      ...overrides,
+    });
+
+const rawTokenFromLink = (url) => new URL(url).searchParams.get("start");
+
+const sendUpdate = (update, { secret = "test-webhook-secret" } = {}) => {
+  const req = request(app).post("/api/telegram/webhook");
+  if (secret !== null) req.set("x-telegram-bot-api-secret-token", secret);
+  return req.send(update);
+};
+
+describe("Telegram integration", () => {
+  it("rejects webhook calls with a missing or wrong secret", async () => {
+    const noHeader = await sendUpdate({ message: { chat: { id: 1 }, text: "/start bogus" } }, { secret: null });
+    expect(noHeader.status).toBe(401);
+
+    const wrongHeader = await sendUpdate(
+      { message: { chat: { id: 1 }, text: "/start bogus" } },
+      { secret: "not-the-real-secret" }
+    );
+    expect(wrongHeader.status).toBe(401);
+  });
+
+  it("requires a doctor login for connect-link/status/preferences/disconnect", async () => {
+    const res = await request(app).get("/api/telegram/connect-link");
+    expect(res.status).toBe(401);
+  });
+
+  it("walks a doctor through connect -> receiving a request -> accept, end to end", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc@example.com" });
+
+    const before = await request(app).get("/api/telegram/status").set("Cookie", doctor.cookie);
+    expect(before.status).toBe(200);
+    expect(before.body.connected).toBe(false);
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    expect(link.status).toBe(200);
+    expect(link.body.url).toBe(`https://t.me/TestBot?start=${rawTokenFromLink(link.body.url)}`);
+    const rawToken = rawTokenFromLink(link.body.url);
+    expect(rawToken).toMatch(/^[a-f0-9]{64}$/);
+
+    const chatId = 555111;
+    const start = await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawToken}` } });
+    expect(start.status).toBe(200);
+
+    const afterConnect = await request(app).get("/api/telegram/status").set("Cookie", doctor.cookie);
+    expect(afterConnect.body.connected).toBe(true);
+    expect(afterConnect.body.linkedAt).toBeTruthy();
+
+    // Book a real appointment with this doctor, then accept it via the
+    // Telegram button tap instead of the REST status endpoint.
+    await genSlots(doctor.cookie, { date: "2027-02-01", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-01");
+    const booked = await bookAppointment(slots.body[0]._id);
+    expect(booked.status).toBe(201);
+
+    const accept = await sendUpdate({
+      callback_query: { id: "cbq1", data: `acc:${booked.body._id}`, message: { chat: { id: chatId } } },
+    });
+    expect(accept.status).toBe(200);
+
+    const asDoctor = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
+    expect(asDoctor.body.status).toBe("confirmed");
+
+    // Preferences can be dialled back...
+    const prefs = await request(app)
+      .patch("/api/telegram/preferences")
+      .set("Cookie", doctor.cookie)
+      .send({ notifyNewRequest: false });
+    expect(prefs.status).toBe(200);
+    expect(prefs.body.notifyNewRequest).toBe(false);
+    expect(prefs.body.notifyPayment).toBe(true);
+
+    // ...and the whole connection can be torn down.
+    const disconnect = await request(app).delete("/api/telegram/connect").set("Cookie", doctor.cookie);
+    expect(disconnect.status).toBe(200);
+
+    const afterDisconnect = await request(app).get("/api/telegram/status").set("Cookie", doctor.cookie);
+    expect(afterDisconnect.body.connected).toBe(false);
+  });
+
+  it("rejects a request tapped from a chat that isn't linked to that appointment's doctor", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc2@example.com" });
+    await genSlots(doctor.cookie, { date: "2027-02-02", endTime: "09:30" });
+    const slots = await getSlots(doctor.userId, "2027-02-02");
+    const booked = await bookAppointment(slots.body[0]._id);
+
+    // No chat has ever connected, so this tap can't be tied to any doctor.
+    const accept = await sendUpdate({
+      callback_query: { id: "cbq2", data: `acc:${booked.body._id}`, message: { chat: { id: 999999 } } },
+    });
+    expect(accept.status).toBe(200); // Telegram still gets acked...
+
+    const stillPending = await request(app)
+      .get(`/api/appointments/${booked.body._id}`)
+      .set("Cookie", doctor.cookie);
+    expect(stillPending.body.status).toBe("pending"); // ...but nothing actually changed.
+  });
+
+  it("rejects an expired connect link instead of linking the chat", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc3@example.com" });
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    const rawToken = rawTokenFromLink(link.body.url);
+
+    await User.findByIdAndUpdate(doctor.userId, { "telegram.pendingConnectExpires": new Date(Date.now() - 1000) });
+
+    await sendUpdate({ message: { chat: { id: 42 }, text: `/start ${rawToken}` } });
+
+    const status = await request(app).get("/api/telegram/status").set("Cookie", doctor.cookie);
+    expect(status.body.connected).toBe(false);
+  });
+});

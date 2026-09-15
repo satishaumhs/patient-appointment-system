@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import TelegramCard from "../components/TelegramCard";
 import {
   ChevronLeftIcon,
   EditIcon,
@@ -325,6 +326,8 @@ const MyProfile = () => {
           </form>
         )}
       </div>
+
+      <TelegramCard />
     </div>
   );
 };

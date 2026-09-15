@@ -238,3 +238,10 @@ export const EditIcon = (props) => (
     <line x1="14.5" y1="5.5" x2="18.5" y2="9.5" />
   </svg>
 );
+
+export const SendIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M21 3L10.5 13.5" />
+    <path d="M21 3L14.5 21l-4-7.5L3 9.5z" />
+  </svg>
+);

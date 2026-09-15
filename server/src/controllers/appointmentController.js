@@ -301,41 +301,41 @@ const getAppointmentByReference = asyncHandler(async (req, res) => {
   });
 });
 
-const updateAppointmentStatus = asyncHandler(async (req, res) => {
-  const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
+// The actual status-change rules and side effects, deliberately kept
+// independent of req/res -- both the REST endpoint below and the Telegram
+// webhook's Accept/Reject buttons need to apply the exact same guards and
+// notifications, and duplicating this logic would let the two drift apart.
+// Returns { error: { statusCode, message } } or { appointment }.
+const applyStatusChange = async ({ appointment, actingUserId, actingUserRole, status }) => {
+  const isOwnerDoctor = appointment.doctor._id.equals(actingUserId);
 
-  if (!appointment) {
-    return res.status(404).json({ message: "Appointment not found" });
+  if (actingUserRole === "doctor" && !isOwnerDoctor) {
+    return { error: { statusCode: 403, message: "Not authorized to update this appointment" } };
   }
-
-  const isOwnerDoctor = appointment.doctor._id.equals(req.user._id);
-
-  if (req.user.role === "doctor" && !isOwnerDoctor) {
-    return res.status(403).json({ message: "Not authorized to update this appointment" });
-  }
-
-  const { status } = req.body;
 
   if (TERMINAL_STATUSES.includes(appointment.status)) {
-    return res.status(400).json({ message: `Cannot change the status of a ${appointment.status} appointment` });
+    return { error: { statusCode: 400, message: `Cannot change the status of a ${appointment.status} appointment` } };
   }
 
   if (status === "confirmed" && appointment.date < new Date()) {
-    return res
-      .status(400)
-      .json({ message: "Cannot confirm an appointment whose scheduled time has already passed" });
+    return {
+      error: { statusCode: 400, message: "Cannot confirm an appointment whose scheduled time has already passed" },
+    };
   }
 
   if (status === "completed" && appointment.date > new Date()) {
-    return res.status(400).json({ message: "Cannot mark an appointment complete before its scheduled date" });
+    return { error: { statusCode: 400, message: "Cannot mark an appointment complete before its scheduled date" } };
   }
 
   // A video visit has no cash fallback -- payment has to happen online, so
   // it can't be considered complete until that's actually settled.
   if (status === "completed" && appointment.appointmentType === "video" && appointment.payment.status === "pending") {
-    return res
-      .status(400)
-      .json({ message: "This video consultation needs to be paid online before it can be marked complete" });
+    return {
+      error: {
+        statusCode: 400,
+        message: "This video consultation needs to be paid online before it can be marked complete",
+      },
+    };
   }
 
   if (status === "confirmed" && appointment.appointmentType === "video" && !appointment.videoLink) {
@@ -385,7 +385,28 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
     await notify({ appointment, audience: "patient", ...notice });
   }
 
-  res.json(appointment);
+  return { appointment };
+};
+
+const updateAppointmentStatus = asyncHandler(async (req, res) => {
+  const appointment = await Appointment.findById(req.params.id).populate("doctor", "name email");
+
+  if (!appointment) {
+    return res.status(404).json({ message: "Appointment not found" });
+  }
+
+  const result = await applyStatusChange({
+    appointment,
+    actingUserId: req.user._id,
+    actingUserRole: req.user.role,
+    status: req.body.status,
+  });
+
+  if (result.error) {
+    return res.status(result.error.statusCode).json({ message: result.error.message });
+  }
+
+  res.json(result.appointment);
 });
 
 const rescheduleAppointment = asyncHandler(async (req, res) => {
@@ -622,6 +643,7 @@ module.exports = {
   getAppointmentById,
   getAppointmentByReference,
   updateAppointmentStatus,
+  applyStatusChange,
   rescheduleAppointment,
   cancelAppointmentByReference,
   payAppointmentByReference,
@@ -629,4 +651,5 @@ module.exports = {
   markAppointmentPaid,
   deleteAppointment,
   settleOverdueAppointments,
+  doctorLabel,
 };
