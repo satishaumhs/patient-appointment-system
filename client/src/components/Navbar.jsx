@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Logo from "./Logo";
@@ -44,11 +45,43 @@ const navLinkClass = ({ isActive }) =>
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [specialtiesOpen, setSpecialtiesOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState(null);
+  const specialtiesRef = useRef(null);
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
+
+  const toggleSpecialties = () => {
+    if (!specialtiesOpen && specialtiesRef.current) {
+      const rect = specialtiesRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom, left: rect.left });
+    }
+    setSpecialtiesOpen((open) => !open);
+  };
+
+  // The nav row is horizontally scrollable (overflow-x-auto, for mobile),
+  // which -- per CSS's own rules -- also clips vertical overflow, cutting
+  // off an absolutely-positioned dropdown even on desktop where the row
+  // never actually scrolls. Fixed positioning (computed here, not CSS
+  // `absolute`) escapes that clipping instead of being contained by it.
+  useEffect(() => {
+    if (!specialtiesOpen) return;
+    const closeOnOutsideClick = (e) => {
+      if (!specialtiesRef.current?.contains(e.target)) setSpecialtiesOpen(false);
+    };
+    const closeOnEscape = (e) => {
+      if (e.key === "Escape") setSpecialtiesOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [specialtiesOpen]);
 
   if (user) {
     // A doctor/admin can still land on a public page (e.g. /doctors) while
@@ -107,23 +140,34 @@ const Navbar = () => {
             Doctors
           </NavLink>
 
-          <details className="group relative shrink-0">
-            <summary className="flex items-center gap-1 py-2.5 text-sm font-medium text-teal-100/80 hover:text-white whitespace-nowrap cursor-pointer list-none">
+          <div ref={specialtiesRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={toggleSpecialties}
+              aria-expanded={specialtiesOpen}
+              className="flex items-center gap-1 py-2.5 text-sm font-medium text-teal-100/80 hover:text-white whitespace-nowrap cursor-pointer"
+            >
               Specialties
-              <ChevronDownIcon className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="absolute left-0 top-full z-20 mt-0 w-64 max-h-80 overflow-y-auto bg-white rounded-b-md border border-gray-200 shadow-lg py-1.5">
-              {SPECIALTIES.map((s) => (
-                <Link
-                  key={s}
-                  to={`/doctors?specialization=${encodeURIComponent(s)}`}
-                  className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700"
-                >
-                  {s}
-                </Link>
-              ))}
-            </div>
-          </details>
+              <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${specialtiesOpen ? "rotate-180" : ""}`} />
+            </button>
+            {specialtiesOpen && dropdownPos && (
+              <div
+                style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left }}
+                className="z-30 w-64 max-h-80 overflow-y-auto bg-white rounded-b-md border border-gray-200 shadow-lg py-1.5"
+              >
+                {SPECIALTIES.map((s) => (
+                  <Link
+                    key={s}
+                    to={`/doctors?specialization=${encodeURIComponent(s)}`}
+                    onClick={() => setSpecialtiesOpen(false)}
+                    className="block px-4 py-1.5 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700"
+                  >
+                    {s}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
 
           <NavLink to="/services" className={navLinkClass}>
             Services
