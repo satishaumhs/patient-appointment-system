@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api from "../api/axios";
 import { CreditCardIcon } from "./icons";
-import { VisaMark, MastercardMark } from "./CardBrandLogos";
+import { VisaMark, MastercardMark, GooglePayMark, PhonePeMark, PaytmMark } from "./CardBrandLogos";
 
 const plainInputClass =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600";
@@ -139,10 +139,16 @@ const DemoPaymentForm = ({ payment, appointmentStatus, appointmentType, referenc
                     UPI
                   </label>
                 </div>
-                {method === "card" && (
+                {method === "card" ? (
                   <div className="flex items-center gap-1.5">
                     <VisaMark className="h-5" />
                     <MastercardMark className="h-5" />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <GooglePayMark className="h-5" />
+                    <PhonePeMark className="h-5" />
+                    <PaytmMark className="h-5" />
                   </div>
                 )}
               </div>

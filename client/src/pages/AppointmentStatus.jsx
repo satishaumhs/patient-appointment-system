@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import api from "../api/axios";
 import DemoPaymentForm from "../components/DemoPaymentForm";
-import { VisaMark, MastercardMark } from "../components/CardBrandLogos";
+import { VisaMark, MastercardMark, GooglePayMark, PhonePeMark } from "../components/CardBrandLogos";
 import {
   TicketIcon,
   PhoneIcon,
@@ -134,9 +134,11 @@ const AppointmentStatus = () => {
           {isPaymentEntry ? "Pay for your appointment" : "Check appointment status"}
         </h1>
         {isPaymentEntry && (
-          <div className="flex items-center gap-1.5 shrink-0 pt-1">
+          <div className="flex items-center gap-1.5 shrink-0 pt-1 flex-wrap justify-end">
             <VisaMark className="h-5" />
             <MastercardMark className="h-5" />
+            <GooglePayMark className="h-5" />
+            <PhonePeMark className="h-5" />
           </div>
         )}
       </div>
