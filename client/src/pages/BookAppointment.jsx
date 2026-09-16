@@ -4,8 +4,6 @@ import api from "../api/axios";
 import DemoPaymentForm from "../components/DemoPaymentForm";
 import {
   StethoscopeIcon,
-  ClockIcon,
-  CalendarIcon,
   MapPinIcon,
   BriefcaseIcon,
   UserIcon,
@@ -129,8 +127,6 @@ const BookAppointment = () => {
     });
     return groups.filter((g) => g.items.length > 0);
   }, [daySlots]);
-
-  const selectedSlot = allSlots.find((s) => s._id === slotId);
 
   const handlePatientFormChange = (e) => setPatientForm({ ...patientForm, [e.target.name]: e.target.value });
   const handlePatientFieldBlur = (e) => setTouched({ ...touched, [e.target.name]: true });
@@ -343,6 +339,7 @@ const BookAppointment = () => {
             ) : (
               <>
                 <select
+                  aria-label="Filter by specialty"
                   value={specialization}
                   onChange={(e) => setSpecialization(e.target.value)}
                   className={`${inputClass} sm:max-w-xs mb-3`}
@@ -359,6 +356,7 @@ const BookAppointment = () => {
                   <p className="text-sm text-gray-500">No doctors in this speciality yet.</p>
                 ) : (
                   <select
+                    aria-label="Select a doctor"
                     value=""
                     onChange={(e) => handleSelectDoctor(e.target.value)}
                     className={`${inputClass} sm:max-w-md`}
