@@ -10,6 +10,15 @@ module.exports = defineConfig({
     baseURL: "http://localhost:5173",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    // This app has no explicit timeZone in its own browser-side time
+    // formatting (e.g. BookAppointment.jsx's slot-time labels) -- it
+    // renders in whatever timezone the browser itself is in, same as a
+    // real patient/doctor's own browser would. Pinning it to the clinic's
+    // own timezone here is what makes specs asserting on a specific
+    // formatted time label (e.g. "09:00 AM") deterministic regardless of
+    // which OS/timezone actually runs the suite, rather than only working
+    // by coincidence on a host that already happens to be IST.
+    timezoneId: "Asia/Kolkata",
   },
   // PLAYWRIGHT_CHANNEL is unset in CI and on a normal dev machine, so this
   // defaults to Playwright's own downloaded Chromium build. It exists for
