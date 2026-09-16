@@ -28,10 +28,13 @@ module.exports = defineConfig({
   // cluster, so a full Playwright run can never touch real dev/prod data.
   webServer: [
     {
+      // Generous timeout: a cold CI runner's first-ever launch has to
+      // download mongodb-memory-server's real MongoDB binary (tens of MB)
+      // before the server can even start connecting.
       command: "node e2e-server.js",
       cwd: "../server",
       port: 5000,
-      timeout: 60_000,
+      timeout: 120_000,
       reuseExistingServer: !process.env.CI,
     },
     {
