@@ -217,7 +217,7 @@ describe("Telegram integration", () => {
     const booked = await bookAppointment(slots.body[0]._id);
     const alternativeSlotId = slots.body[1]._id;
 
-    const prompt = new Promise((resolve) => {
+    const dayPrompt = new Promise((resolve) => {
       sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
         resolve({ text, keyboard });
         return Promise.resolve({ ok: true });
@@ -230,12 +230,39 @@ describe("Telegram integration", () => {
         message: { chat: { id: chatId }, message_id: 5001 },
       },
     });
-    const { text: promptText, keyboard } = await prompt;
-    expect(promptText).toContain("Test Doctor");
+    const { text: dayText, keyboard: dayKeyboard } = await dayPrompt;
+    expect(dayText).toContain("Test Doctor");
     // Tapping Reschedule retires the original request message either way.
     expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 5001);
 
-    const offeredSlotIds = keyboard.flat().map((btn) => btn.callback_data.split(":")[2]);
+    // Both remaining slots are the same day, so the day picker itself is
+    // just the one button -- the actual filtering behavior is covered by
+    // the multi-day test below.
+    const dayButtons = dayKeyboard.flat();
+    expect(dayButtons).toHaveLength(1);
+    const dayKey = dayButtons[0].callback_data.split(":")[2];
+
+    const timePrompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
+        resolve({ text, keyboard });
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rd",
+        data: `rd:${booked.body._id}:${dayKey}`,
+        message: { chat: { id: chatId }, message_id: 5002 },
+      },
+    });
+    const { keyboard: timeKeyboard } = await timePrompt;
+    // Picking a day retires the day-picker message too.
+    expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 5002);
+
+    const offeredSlotIds = timeKeyboard
+      .flat()
+      .filter((btn) => btn.callback_data.startsWith("rt:"))
+      .map((btn) => btn.callback_data.split(":")[2]);
     expect(offeredSlotIds).toEqual([alternativeSlotId]);
 
     const confirmation = new Promise((resolve) => {
@@ -248,14 +275,14 @@ describe("Telegram integration", () => {
       callback_query: {
         id: "cbq_rt",
         data: `rt:${booked.body._id}:${alternativeSlotId}`,
-        message: { chat: { id: chatId }, message_id: 5002 },
+        message: { chat: { id: chatId }, message_id: 5003 },
       },
     });
     const confirmationText = await confirmation;
     expect(confirmationText).toContain("Rescheduled");
     expect(confirmationText).toContain("Test Doctor");
-    // And the slot-picker message's own buttons come off on success too.
-    expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 5002);
+    // And the time-picker message's own buttons come off on success too.
+    expect(clearMessageButtons).toHaveBeenCalledWith(String(chatId), 5003);
 
     const after = await request(app).get(`/api/appointments/${booked.body._id}`).set("Cookie", doctor.cookie);
     expect(after.body.status).toBe("confirmed");
@@ -265,6 +292,77 @@ describe("Telegram integration", () => {
     // isBooked:false slots, so its reappearance here IS proof it was freed.
     const slotsAfter = await getSlots(doctor.userId, targetDate);
     expect(slotsAfter.body.map((s) => s._id)).toEqual([slots.body[0]._id]);
+  });
+
+  it("groups reschedule options into a day picker, and only offers the picked day's times", async () => {
+    const doctor = await registerDoctor({ email: "tgdoc-days@example.com" });
+    const chatId = 88804;
+
+    const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
+    await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
+
+    // Three distinct days -- enough to prove the day picker's own 2-per-row
+    // chunking, and (the actual point of this fix) that picking one day
+    // never leaks another day's slots into the time picker.
+    const dayA = daysFromNow(3);
+    const dayB = daysFromNow(4);
+    const dayC = daysFromNow(5);
+    await genSlots(doctor.cookie, { date: dayA, startTime: "09:00", endTime: "09:30" }); // 1 slot
+    await genSlots(doctor.cookie, { date: dayB, startTime: "09:00", endTime: "10:00" }); // 2 slots
+    await genSlots(doctor.cookie, { date: dayC, startTime: "09:00", endTime: "09:30" }); // 1 slot
+
+    const slotsB = await getSlots(doctor.userId, dayB);
+    const bookedOnA = (await getSlots(doctor.userId, dayA)).body[0]._id;
+    const booked = await bookAppointment(bookedOnA);
+
+    const dayPrompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
+        resolve({ text, keyboard });
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rs_days",
+        data: `rs:${booked.body._id}`,
+        message: { chat: { id: chatId }, message_id: 8001 },
+      },
+    });
+    const { keyboard: dayKeyboard } = await dayPrompt;
+
+    // dayA's only slot is now this appointment's own booking, so only dayB
+    // (2 slots) and dayC (1 slot) remain -- two day buttons, one row.
+    const dayButtons = dayKeyboard.flat();
+    expect(dayButtons).toHaveLength(2);
+    expect(dayKeyboard.map((row) => row.length)).toEqual([2]);
+    expect(dayButtons[0].text).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2} \(2\)$/);
+    expect(dayButtons[1].text).toMatch(/^[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2} \(1\)$/);
+
+    const dayBKey = dayButtons[0].callback_data.split(":")[2];
+
+    const timePrompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
+        resolve({ text, keyboard });
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rd_dayB",
+        data: `rd:${booked.body._id}:${dayBKey}`,
+        message: { chat: { id: chatId }, message_id: 8002 },
+      },
+    });
+    const { text: timeText, keyboard: timeKeyboard } = await timePrompt;
+
+    // Only dayB's own 2 slots -- never dayC's, even though dayC also had an
+    // open slot inside the same reschedule window.
+    const offeredSlotIds = timeKeyboard
+      .flat()
+      .filter((btn) => btn.callback_data.startsWith("rt:"))
+      .map((btn) => btn.callback_data.split(":")[2]);
+    expect(offeredSlotIds.sort()).toEqual([slotsB.body[0]._id, slotsB.body[1]._id].sort());
+    expect(timeText).toContain("Test Doctor");
   });
 
   it("leaves the slot-picker buttons tappable when a reschedule pick fails", async () => {
@@ -297,22 +395,23 @@ describe("Telegram integration", () => {
     expect(stillPending.body.status).toBe("pending");
   });
 
-  it("lays out reschedule options two per row with compact labels", async () => {
+  it("lays out a day's reschedule times three per row with compact labels", async () => {
     const doctor = await registerDoctor({ email: "tgdoc8@example.com" });
     const chatId = 88803;
 
     const link = await request(app).get("/api/telegram/connect-link").set("Cookie", doctor.cookie);
     await sendUpdate({ message: { chat: { id: chatId }, text: `/start ${rawTokenFromLink(link.body.url)}` } });
 
-    // 4 slots total, 1 gets booked -- leaves 3 alternatives, enough to prove
-    // the 2-per-row chunking (rows of [2, 1], not one slot per row).
+    // 5 slots total on one day, 1 gets booked -- leaves 4 alternatives,
+    // enough to prove the 3-per-row chunking (rows of [3, 1], not one slot
+    // per row) once that day's own time picker is reached.
     const targetDate = daysFromNow(7);
-    await genSlots(doctor.cookie, { date: targetDate, startTime: "09:00", endTime: "11:00", slotMinutes: 30 });
+    await genSlots(doctor.cookie, { date: targetDate, startTime: "09:00", endTime: "11:30", slotMinutes: 30 });
     const slots = await getSlots(doctor.userId, targetDate);
-    expect(slots.body.length).toBe(4);
+    expect(slots.body.length).toBe(5);
     const booked = await bookAppointment(slots.body[0]._id);
 
-    const prompt = new Promise((resolve) => {
+    const dayPrompt = new Promise((resolve) => {
       sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
         resolve(keyboard);
         return Promise.resolve({ ok: true });
@@ -325,11 +424,32 @@ describe("Telegram integration", () => {
         message: { chat: { id: chatId }, message_id: 7001 },
       },
     });
-    const keyboard = await prompt;
+    const dayKeyboard = await dayPrompt;
+    const dayKey = dayKeyboard.flat()[0].callback_data.split(":")[2];
 
-    expect(keyboard.map((row) => row.length)).toEqual([2, 1]);
-    // Compact label -- "Sep 16, 9:00 AM", not the full "9/16/2026, 9:00:00 AM".
-    expect(keyboard[0][0].text).toMatch(/^[A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/);
+    const timePrompt = new Promise((resolve) => {
+      sendTelegramMessage.mockImplementation((toChatId, text, keyboard) => {
+        resolve(keyboard);
+        return Promise.resolve({ ok: true });
+      });
+    });
+    await sendUpdate({
+      callback_query: {
+        id: "cbq_rd_layout",
+        data: `rd:${booked.body._id}:${dayKey}`,
+        message: { chat: { id: chatId }, message_id: 7002 },
+      },
+    });
+    const timeKeyboard = await timePrompt;
+
+    // The last row is just the standalone "Back to dates" button -- the 4
+    // time options above it are what should show the 3-per-row chunking.
+    const timeRows = timeKeyboard.filter((row) => row[0].callback_data.startsWith("rt:"));
+    expect(timeRows.map((row) => row.length)).toEqual([3, 1]);
+    // Compact, time-only label -- "9:30 AM", not "Sep 23, 9:30 AM": the day
+    // is already established by the day picker, so repeating it here would
+    // just be noise.
+    expect(timeRows[0][0].text).toMatch(/^\d{1,2}:\d{2} (AM|PM)$/);
   });
 
   it("tells the doctor there's nothing to reschedule into when no other slots are open", async () => {

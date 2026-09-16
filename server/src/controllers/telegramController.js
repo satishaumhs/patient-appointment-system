@@ -14,11 +14,19 @@ const PREFERENCE_KEYS = ["notifyNewRequest", "notifyStatusChange", "notifyPaymen
 // for a reschedule (a slot two months out is rarely what anyone wants here)
 // rather than an arbitrary small count. RESCHEDULE_OPTIONS_SAFETY_CAP is a
 // backstop, not the normal control -- it only bites for a doctor with an
-// unusually dense open schedule, so a single message can't blow past
-// Telegram's own button-count ceiling.
+// unusually dense open schedule, so a single query can't blow past what's
+// reasonable to hand to a doctor at all.
+//
+// Handing all of those slots to a doctor as one flat button grid doesn't
+// scale -- a doctor with 60 open slots across 30 days got a 30-row wall of
+// buttons in one message. Instead this is a day picker first (one button
+// per date that actually has an opening) and only the tapped day's own
+// slots become time buttons, so no single message shows more than a
+// handful of options.
 const RESCHEDULE_WINDOW_DAYS = 30;
 const RESCHEDULE_OPTIONS_SAFETY_CAP = 60;
-const RESCHEDULE_OPTIONS_PER_ROW = 2;
+const RESCHEDULE_DAYS_PER_ROW = 2;
+const RESCHEDULE_TIMES_PER_ROW = 3;
 
 // Doctor-only: a fresh one-time link each time it's requested, same
 // hashed-random-token pattern authController.js uses for password resets --
@@ -199,11 +207,42 @@ const handleAcceptReject = async (callbackQuery, chatId, action, appointmentId) 
   );
 };
 
-// A tap on "Reschedule": offers the doctor's own next open slots as buttons,
-// rather than trying to recreate the app's full calendar picker inside a
-// chat. Each option carries the slot id directly in its callback_data, so
-// picking one is a single round trip instead of a multi-step conversation
-// Telegram has no server-side state to track between taps anyway.
+// Shared by both reschedule steps below: the doctor's own open slots inside
+// the reschedule window, oldest first, bounded by RESCHEDULE_OPTIONS_SAFETY_CAP.
+// Re-run on every tap (the day list AND a specific day's times) rather than
+// threading one query's result through the callback chain -- Telegram has no
+// server-side state between taps, and re-querying means a slot someone else
+// just booked can never be offered as if it were still open.
+const fetchOpenSlotsForReschedule = async (doctorId) => {
+  const windowEnd = new Date(Date.now() + RESCHEDULE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const openSlots = await Availability.find({
+    doctor: doctorId,
+    isBooked: false,
+    startTime: { $gt: new Date(), $lte: windowEnd },
+  })
+    .sort({ startTime: 1 })
+    .limit(RESCHEDULE_OPTIONS_SAFETY_CAP + 1); // +1 just to detect truncation, not to offer it
+
+  const truncated = openSlots.length > RESCHEDULE_OPTIONS_SAFETY_CAP;
+  return { openSlots: truncated ? openSlots.slice(0, RESCHEDULE_OPTIONS_SAFETY_CAP) : openSlots, truncated };
+};
+
+// Groups slots (already sorted oldest-first) into clinic-local calendar
+// days, preserving that chronological order -- Map iteration order follows
+// insertion order, so no separate sort is needed afterward.
+const groupSlotsByDay = (slots) => {
+  const groups = new Map();
+  for (const slot of slots) {
+    const key = formatClinicDateTime.dayKey(slot.startTime);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(slot);
+  }
+  return groups;
+};
+
+// A tap on "Reschedule": step 1 of 2. Offers the doctor's open days as
+// buttons rather than every open slot at once -- see the RESCHEDULE_*
+// comment above. Picking a day drills into handleRescheduleDayPick below.
 const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
   const { doctor, appointment } = await findLinkedDoctorAndAppointment(chatId, appointmentId);
 
@@ -218,19 +257,14 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
     return;
   }
 
-  const windowEnd = new Date(Date.now() + RESCHEDULE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  const openSlots = await Availability.find({
-    doctor: appointment.doctor._id,
-    isBooked: false,
-    startTime: { $gt: new Date(), $lte: windowEnd },
-  })
-    .sort({ startTime: 1 })
-    .limit(RESCHEDULE_OPTIONS_SAFETY_CAP + 1); // +1 just to detect truncation, not to offer it
+  const { openSlots, truncated } = await fetchOpenSlotsForReschedule(appointment.doctor._id);
 
-  await answerCallbackQuery(callbackQuery.id, "Pick a new time");
+  await answerCallbackQuery(callbackQuery.id, "Pick a day");
   // Tapping Reschedule commits to that sub-flow either way (slots found or
   // not) -- the original Accept/Reject/Reschedule buttons shouldn't still
-  // be tappable once the doctor has moved past that decision.
+  // be tappable once the doctor has moved past that decision. Re-tapping
+  // "Back to dates" from the time-picker also lands here and re-clears
+  // whatever message it came from the same way.
   await clearMessageButtons(chatId, callbackQuery.message.message_id);
 
   if (openSlots.length === 0) {
@@ -241,19 +275,64 @@ const handleReschedulePrompt = async (callbackQuery, chatId, appointmentId) => {
     return;
   }
 
-  const truncated = openSlots.length > RESCHEDULE_OPTIONS_SAFETY_CAP;
-  const offeredSlots = truncated ? openSlots.slice(0, RESCHEDULE_OPTIONS_SAFETY_CAP) : openSlots;
+  const dayGroups = groupSlotsByDay(openSlots);
+  const dayButtons = [...dayGroups.entries()].map(([dayKey, daySlots]) => ({
+    text: `${formatClinicDateTime.dayLabel(daySlots[0].startTime)} (${daySlots.length})`,
+    callback_data: `rd:${appointmentId}:${dayKey}`,
+  }));
+  const keyboard = [];
+  for (let i = 0; i < dayButtons.length; i += RESCHEDULE_DAYS_PER_ROW) {
+    keyboard.push(dayButtons.slice(i, i + RESCHEDULE_DAYS_PER_ROW));
+  }
 
-  const buttons = offeredSlots.map((slot) => ({
-    text: formatClinicDateTime.short(slot.startTime),
+  const intro = `Pick a day for ${appointment.patientInfo.name}'s appointment with ${doctorLabel(appointment.doctor.name)} (next ${RESCHEDULE_WINDOW_DAYS} days${truncated ? ", earliest openings shown" : ""}):`;
+  await sendTelegramMessage(chatId, intro, keyboard);
+};
+
+// A tap on one of the day buttons from handleReschedulePrompt: step 2 of 2.
+// Re-fetches and re-filters rather than trusting the day list is still
+// accurate -- another tap (a different chat managing the same doctor, or the
+// doctor themself acting from the app) could have booked into that day
+// between the two messages.
+const handleRescheduleDayPick = async (callbackQuery, chatId, appointmentId, dayKey) => {
+  const { doctor, appointment } = await findLinkedDoctorAndAppointment(chatId, appointmentId);
+
+  if (!doctor || !appointment) {
+    await answerCallbackQuery(callbackQuery.id, "This request isn't linked to your account");
+    return;
+  }
+
+  if (TERMINAL_STATUSES.includes(appointment.status)) {
+    await answerCallbackQuery(callbackQuery.id, `Cannot reschedule a ${appointment.status} appointment`);
+    await clearMessageButtons(chatId, callbackQuery.message.message_id);
+    return;
+  }
+
+  const { openSlots } = await fetchOpenSlotsForReschedule(appointment.doctor._id);
+  const daySlots = openSlots.filter((slot) => formatClinicDateTime.dayKey(slot.startTime) === dayKey);
+
+  if (daySlots.length === 0) {
+    // A transient race, same as a failed time-pick below -- leave the day
+    // list itself tappable so the doctor can just pick a different date
+    // instead of losing the whole flow over one now-stale day.
+    await answerCallbackQuery(callbackQuery.id, "Those slots were just booked -- pick another day");
+    return;
+  }
+
+  await answerCallbackQuery(callbackQuery.id, formatClinicDateTime.dayLabel(daySlots[0].startTime));
+  await clearMessageButtons(chatId, callbackQuery.message.message_id);
+
+  const buttons = daySlots.map((slot) => ({
+    text: formatClinicDateTime.timeOnly(slot.startTime),
     callback_data: `rt:${appointmentId}:${slot._id}`,
   }));
   const keyboard = [];
-  for (let i = 0; i < buttons.length; i += RESCHEDULE_OPTIONS_PER_ROW) {
-    keyboard.push(buttons.slice(i, i + RESCHEDULE_OPTIONS_PER_ROW));
+  for (let i = 0; i < buttons.length; i += RESCHEDULE_TIMES_PER_ROW) {
+    keyboard.push(buttons.slice(i, i + RESCHEDULE_TIMES_PER_ROW));
   }
+  keyboard.push([{ text: "◀ Back to dates", callback_data: `rs:${appointmentId}` }]);
 
-  const intro = `Pick a new time for ${appointment.patientInfo.name}'s appointment with ${doctorLabel(appointment.doctor.name)} (next ${RESCHEDULE_WINDOW_DAYS} days${truncated ? `, showing the first ${RESCHEDULE_OPTIONS_SAFETY_CAP}` : ""}):`;
+  const intro = `Pick a new time on ${formatClinicDateTime.dayLabel(daySlots[0].startTime)} for ${appointment.patientInfo.name}'s appointment with ${doctorLabel(appointment.doctor.name)}:`;
   await sendTelegramMessage(chatId, intro, keyboard);
 };
 
@@ -291,7 +370,8 @@ const handleRescheduleConfirm = async (callbackQuery, chatId, appointmentId, slo
 };
 
 const handleCallbackQuery = async (callbackQuery) => {
-  const [action, appointmentId, slotId] = (callbackQuery.data || "").split(":");
+  // param is a slot id for "rt", a clinic-local day key ("2026-09-18") for "rd".
+  const [action, appointmentId, param] = (callbackQuery.data || "").split(":");
   const chatId = String(callbackQuery.message?.chat?.id || "");
 
   if (!appointmentId) {
@@ -300,7 +380,8 @@ const handleCallbackQuery = async (callbackQuery) => {
   }
 
   if (action === "rs") return handleReschedulePrompt(callbackQuery, chatId, appointmentId);
-  if (action === "rt") return handleRescheduleConfirm(callbackQuery, chatId, appointmentId, slotId);
+  if (action === "rd") return handleRescheduleDayPick(callbackQuery, chatId, appointmentId, param);
+  if (action === "rt") return handleRescheduleConfirm(callbackQuery, chatId, appointmentId, param);
   if (action === "acc" || action === "rej") return handleAcceptReject(callbackQuery, chatId, action, appointmentId);
 
   await answerCallbackQuery(callbackQuery.id, "Unrecognized action");
